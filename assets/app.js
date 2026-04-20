@@ -133,7 +133,6 @@ async function discoverTurtleVariants() {
 function renderHero() {
   const { site } = state.content;
   document.title = site.title;
-  const contactPageHref = "/contact/";
   const outlinePanel = (site.homepagePanels || []).find((entry) => entry.id === "outline");
   const featuredPanel = (site.homepagePanels || []).find((entry) => entry.id === "featured");
   const featuredPosts = getPublishedPosts()
@@ -190,7 +189,11 @@ function renderHero() {
             <p class="eyebrow">${escapeHtml(outlinePanel?.eyebrow || "Outline")}</p>
             <h2>${escapeHtml(outlinePanel?.title || "Outline")}</h2>
           </div>
-          <div class="category-grid hero-slide-category-grid">${renderCategories()}</div>
+          ${
+            outlinePanel?.description
+              ? `<div class="custom-panel-body"><p>${escapeHtml(outlinePanel.description)}</p></div>`
+              : ""
+          }
         </section>
         <section class="hero-slide hero-slide-panel" data-debug-name="Hero featured slide">
           <div class="hero-slide-head">
@@ -205,26 +208,13 @@ function renderHero() {
             }
           </div>
         </section>
-        <section class="hero-slide hero-slide-panel" data-debug-name="Hero about slide">
-          <div class="hero-slide-head">
-            <p class="eyebrow">${escapeHtml(site.aboutEyebrow || "About me")}</p>
-            <h2>${escapeHtml(site.contactLabel || "About me")}</h2>
-          </div>
-          <div class="custom-panel-body">
-            <p>${escapeHtml(site.about || "")}</p>
-          </div>
-          <div class="hero-actions">
-            <a class="pill-link" href="/about/">Read more</a>
-          </div>
-        </section>
       </div>
       <div class="hero-carousel-dots" aria-label="Hero pages" data-debug-name="Hero dots">
         <button class="hero-dot is-active" type="button" aria-label="Go to page 1" data-slide-index="0"></button>
         <button class="hero-dot" type="button" aria-label="Go to page 2" data-slide-index="1"></button>
         <button class="hero-dot" type="button" aria-label="Go to page 3" data-slide-index="2"></button>
-        <button class="hero-dot" type="button" aria-label="Go to page 4" data-slide-index="3"></button>
       </div>
-      <p class="hero-carousel-page-indicator" aria-live="polite" data-debug-name="Hero page indicator">01 | 04</p>
+      <p class="hero-carousel-page-indicator" aria-live="polite" data-debug-name="Hero page indicator">01 | 03</p>
     </div>
   `;
   bindTurtleFlip();

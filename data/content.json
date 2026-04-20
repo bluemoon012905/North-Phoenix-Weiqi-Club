@@ -1,6 +1,6 @@
 {
   "site": {
-    "title": "Blue's collection of stuff",
+    "title": "North Phoenix Weiqi",
     "tagline": "Blue's little hoard of tools, like a shed",
     "intro": "This is a place where a lot of my projects lives! Anything from art to writing, programming to research, photography to blogs.",
     "about": "Want to say hi, leave feedback, or point me toward something interesting? You can read more about me, reach out directly, or drop a note through the feedback form.",
@@ -17,8 +17,8 @@
       {
         "id": "outline",
         "type": "category-overview",
-        "eyebrow": "Outline",
-        "title": "A shed so big we have rooms",
+        "eyebrow": "",
+        "title": "North Phoenix Weiqi Club",
         "description": "",
         "enabled": true
       },
