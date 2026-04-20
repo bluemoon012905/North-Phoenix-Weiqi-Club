@@ -69,10 +69,10 @@ const fields = {
   siteTitle: document.getElementById("site-title"),
   siteTagline: document.getElementById("site-tagline"),
   siteIntro: document.getElementById("site-intro"),
-  siteAbout: document.getElementById("site-about"),
+  contactDescription: document.getElementById("contact-description"),
   brandMark: document.getElementById("brand-mark"),
   heroEyebrow: document.getElementById("hero-eyebrow"),
-  aboutEyebrow: document.getElementById("about-eyebrow"),
+  contactEyebrow: document.getElementById("contact-eyebrow"),
   contactLabel: document.getElementById("contact-label"),
   contactHref: document.getElementById("contact-href"),
   editorEyebrow: document.getElementById("editor-eyebrow"),
@@ -188,10 +188,10 @@ function populateSiteFields() {
   fields.siteTitle.value = site.title || "";
   fields.siteTagline.value = site.tagline || "";
   fields.siteIntro.value = site.intro || "";
-  fields.siteAbout.value = site.about || "";
+  fields.contactDescription.value = site.contactDescription || site.about || "";
   fields.brandMark.value = site.brandMark || "";
   fields.heroEyebrow.value = site.heroEyebrow || "";
-  fields.aboutEyebrow.value = site.aboutEyebrow || "";
+  fields.contactEyebrow.value = site.contactEyebrow || site.aboutEyebrow || "";
   fields.contactLabel.value = site.contactLabel || "";
   fields.contactHref.value = site.contactHref || "";
   fields.editorEyebrow.value = site.editorEyebrow || "";
@@ -586,15 +586,17 @@ function syncSiteFields() {
   site.title = fields.siteTitle.value.trim();
   site.tagline = fields.siteTagline.value.trim();
   site.intro = fields.siteIntro.value.trim();
-  site.about = fields.siteAbout.value.trim();
+  site.contactDescription = fields.contactDescription.value.trim();
   site.brandMark = fields.brandMark.value.trim();
   site.heroEyebrow = fields.heroEyebrow.value.trim();
-  site.aboutEyebrow = fields.aboutEyebrow.value.trim();
+  site.contactEyebrow = fields.contactEyebrow.value.trim();
   site.contactLabel = fields.contactLabel.value.trim();
   site.contactHref = fields.contactHref.value.trim();
   site.editorEyebrow = fields.editorEyebrow.value.trim();
   site.editorTitle = fields.editorTitle.value.trim();
   site.editorDescription = fields.editorDescription.value.trim();
+  delete site.about;
+  delete site.aboutEyebrow;
   renderEditorSidebarCopy();
   markDirty();
 }

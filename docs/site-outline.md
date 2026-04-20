@@ -100,22 +100,6 @@ Behavior:
 - Shows title, summary, date, tags, and optional cover image
 - Includes browser speech synthesis controls for read-aloud
 
-### About
-
-Route:
-
-- `/about/`
-
-Purpose:
-
-- Personal/profile page
-- Longer intro and contact context
-
-Implementation notes:
-
-- Uses shared section builders from `about/about-sections.js`
-- Includes extra ASU-themed motion/animation logic from `about/about-page.js`
-
 ### Contact
 
 Route:
@@ -129,7 +113,7 @@ Purpose:
 
 Implementation notes:
 
-- Reuses the same shared section renderer as the About page
+- Uses a local contact page renderer in `contact/contact-page.js`
 
 ## Local-Only Route
 
@@ -170,7 +154,6 @@ Current public top nav:
 
 - Home: `/`
 - Games: `/games/`
-- About: `/about/`
 - Contact: `/contact/`
 
 Local-only injected nav links:
@@ -191,7 +174,7 @@ The site is driven by three top-level objects in `data/content.json`:
 Currently stores:
 
 - Title and tagline
-- Intro and about copy
+- Intro and contact copy
 - Brand mark text
 - Hero and page eyebrow labels
 - Contact label and email

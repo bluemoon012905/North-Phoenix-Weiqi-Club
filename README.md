@@ -4,7 +4,7 @@ Small personal site and local content editor.
 
 ## What is here
 
-- Public site pages at `/`, `/about/`, `/contact/`, `/category/`, and `/post/`
+- Public site pages at `/`, `/contact/`, `/category/`, and `/post/`
 - Local-only editor at `/editor/`
 - Content stored in `data/content.json`
 - Local development server in `server.js`

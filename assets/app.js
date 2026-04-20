@@ -176,7 +176,6 @@ function renderHero() {
             <p class="eyebrow">${escapeHtml(site.heroEyebrow || "Project journal")}</p>
             <h1>${escapeHtml(site.title)}</h1>
             <p>${escapeHtml(site.tagline)}</p>
-            <p>${escapeHtml(site.intro)}</p>
             <div class="hero-actions hero-actions-intro" data-debug-name="Hero intro CTA">
               <button class="pill-link hero-next-button" type="button">Take a look!</button>
             </div>
