@@ -1,0 +1,9 @@
+{
+  "name": "blueshellsite",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Static project blog with a local editor",
+  "scripts": {
+    "dev": "node server.js"
+  }
+}

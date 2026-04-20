@@ -1,0 +1,66 @@
+{
+  "site": {
+    "title": "Blue's collection of stuff",
+    "tagline": "Blue's little hoard of tools, like a shed",
+    "intro": "This is a place where a lot of my projects lives! Anything from art to writing, programming to research, photography to blogs.",
+    "about": "Want to say hi, leave feedback, or point me toward something interesting? You can read more about me, reach out directly, or drop a note through the feedback form.",
+    "brandMark": "Blue's collection",
+    "heroEyebrow": "Project journal",
+    "aboutEyebrow": "Contact me",
+    "contactLabel": "About me",
+    "contactHref": "blue.yuda.wang@gmail.com",
+    "feedbackHref": "https://forms.gle/5qkg3Rpj4cXfqr8s6",
+    "editorEyebrow": "Local editor",
+    "editorTitle": "Blue's collection",
+    "editorDescription": "Manage site copy and posts here. Saving writes directly to data/content.json.",
+    "homepagePanels": [
+      {
+        "id": "outline",
+        "type": "category-overview",
+        "eyebrow": "Outline",
+        "title": "A shed so big we have rooms",
+        "description": "",
+        "enabled": true
+      },
+      {
+        "id": "featured",
+        "type": "featured-posts",
+        "eyebrow": "Featured",
+        "title": "Current highlights",
+        "description": "",
+        "enabled": false
+      },
+      {
+        "id": "archive",
+        "type": "archive-posts",
+        "eyebrow": "Archive",
+        "title": "Browse everything",
+        "description": "",
+        "enabled": false
+      }
+    ]
+  },
+  "categories": [
+    {
+      "id": "art",
+      "name": "Art",
+      "description": "Sketches, and that's about all I do. Some opinionated ramble too!"
+    },
+    {
+      "id": "Research",
+      "name": "Research",
+      "description": "NERDY stuff!!! All the cool bits of information that I come across. High level math, development and SCIENCE."
+    },
+    {
+      "id": "projects",
+      "name": "Projects",
+      "description": "All the stuff that I made! or helped to make. Stories of how they come about, designed and implemented included!"
+    },
+    {
+      "id": "writing",
+      "name": "Writing",
+      "description": "Writing is structured chatting, so sit down for a chat where we go over philosophy, art, and life stuff."
+    }
+  ],
+  "posts": []
+}

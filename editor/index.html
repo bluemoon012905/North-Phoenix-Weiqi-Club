@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Blue Shell Almanac Editor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Manrope:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="editor.css" />
+  </head>
+  <body>
+    <div class="editor-shell">
+      <aside class="sidebar">
+        <div class="sidebar-head">
+          <p id="editor-eyebrow-display" class="eyebrow">Local editor</p>
+          <h1 id="editor-title-display">Blue Shell Almanac</h1>
+          <p id="editor-description-display">Manage site copy and posts here. Saving writes directly to <code>data/content.json</code>.</p>
+        </div>
+        <div class="sidebar-actions">
+          <button id="new-post-button" type="button">Add post</button>
+          <button id="save-button" type="button" class="secondary">Save all changes</button>
+          <button id="export-button" type="button" class="secondary">Export backup</button>
+          <a href="/" class="text-link">View public site</a>
+        </div>
+        <label class="search-box">
+          <span class="visually-hidden">Search posts</span>
+          <input id="post-search" type="search" placeholder="Search posts" />
+        </label>
+        <div id="post-list" class="post-list"></div>
+      </aside>
+
+      <main class="editor-main">
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Site settings</p>
+              <h2>Homepage copy</h2>
+            </div>
+            <p id="status-message" class="status-message">Idle</p>
+          </div>
+          <div class="form-grid site-grid">
+            <label>
+              <span>Site title</span>
+              <input id="site-title" type="text" />
+            </label>
+            <label>
+              <span>Tagline</span>
+              <input id="site-tagline" type="text" />
+            </label>
+            <label class="full-width">
+              <span>Intro</span>
+              <textarea id="site-intro" rows="4"></textarea>
+            </label>
+            <label class="full-width">
+              <span>About</span>
+              <textarea id="site-about" rows="4"></textarea>
+            </label>
+            <label>
+              <span>Brand mark</span>
+              <input id="brand-mark" type="text" />
+            </label>
+            <label>
+              <span>Hero eyebrow</span>
+              <input id="hero-eyebrow" type="text" />
+            </label>
+            <label>
+              <span>About eyebrow</span>
+              <input id="about-eyebrow" type="text" />
+            </label>
+            <label>
+              <span>Contact label</span>
+              <input id="contact-label" type="text" />
+            </label>
+            <label>
+              <span>Email address</span>
+              <input id="contact-href" type="text" />
+            </label>
+            <label>
+              <span>Editor eyebrow</span>
+              <input id="editor-eyebrow" type="text" />
+            </label>
+            <label>
+              <span>Editor title</span>
+              <input id="editor-title" type="text" />
+            </label>
+            <label class="full-width">
+              <span>Editor description</span>
+              <textarea id="editor-description" rows="3"></textarea>
+            </label>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Homepage panels</p>
+              <h2>Section layout</h2>
+            </div>
+            <button id="new-home-panel-button" type="button">Add homepage panel</button>
+          </div>
+          <div id="home-panel-fields" class="home-panel-fields"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Categories</p>
+              <h2>Section labels</h2>
+            </div>
+            <button id="new-category-button" type="button">Add panel</button>
+          </div>
+          <div id="category-fields" class="category-fields"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Post workspace</p>
+              <h2>Open the dedicated composer</h2>
+            </div>
+            <button id="open-post-editor-button" type="button">Open selected post</button>
+          </div>
+          <div class="workspace-card">
+            <div>
+              <p class="workspace-kicker">Separate post maker</p>
+              <h3 id="post-editor-heading">Select a post from the sidebar or create a new one.</h3>
+              <p id="post-editor-caption" class="workspace-copy">
+                The composer opens in a focused overlay with formatting controls, image paste support, and a live preview.
+              </p>
+            </div>
+            <div class="workspace-actions">
+              <button id="delete-post-button" type="button" class="danger">Delete selected post</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Post preview</p>
+              <h2>Readable post view</h2>
+            </div>
+            <a id="open-public-post-link-summary" href="/" class="text-link preview-link">Open public version</a>
+          </div>
+          <article id="post-preview" class="post-preview hidden"></article>
+        </section>
+      </main>
+    </div>
+    <div id="post-editor-modal" class="composer-modal hidden" aria-hidden="true">
+      <div id="post-editor-backdrop" class="composer-backdrop"></div>
+      <section class="composer-panel" role="dialog" aria-modal="true" aria-labelledby="composer-title">
+        <div class="composer-head">
+          <div>
+            <p class="eyebrow">Post composer</p>
+            <h2 id="composer-title">New post</h2>
+            <p id="composer-subtitle" class="composer-copy">Write, format, paste images, then save everything back into the site JSON.</p>
+          </div>
+          <div class="composer-head-actions">
+            <button id="insert-image-button" type="button" class="secondary-ink">Insert image</button>
+            <button id="toggle-preview-button" type="button" class="secondary-ink" aria-pressed="false">Hide preview</button>
+            <button id="close-post-editor-button" type="button" class="secondary-ink">Close</button>
+          </div>
+        </div>
+        <div id="composer-grid" class="composer-grid">
+          <div class="composer-form">
+            <div class="form-grid post-grid">
+              <label>
+                <span>Post ID / slug</span>
+                <input id="post-id" type="text" />
+              </label>
+              <label>
+                <span>Title</span>
+                <input id="post-title" type="text" />
+              </label>
+              <label>
+                <span>Category</span>
+                <select id="post-category"></select>
+              </label>
+              <label>
+                <span>Date</span>
+                <input id="post-date" type="date" />
+              </label>
+              <label>
+                <span>Tags</span>
+                <input id="post-tags" type="text" placeholder="comma, separated, tags" />
+              </label>
+              <label>
+                <span>Visibility</span>
+                <select id="post-publish-state">
+                  <option value="published">Published</option>
+                  <option value="unpublished">Unpublished</option>
+                </select>
+              </label>
+              <label class="checkbox-row">
+                <input id="post-featured" type="checkbox" />
+                <span>Featured post</span>
+              </label>
+              <label class="full-width">
+                <span>Summary</span>
+                <textarea id="post-summary" rows="3"></textarea>
+              </label>
+              <label class="full-width">
+                <span>Cover image path or URL</span>
+                <input id="post-cover-image" type="text" placeholder="/assets/images/example.png" />
+              </label>
+              <div class="full-width cover-image-tools">
+                <button id="upload-cover-image-button" type="button" class="secondary-ink">Upload cover</button>
+                <span class="cover-image-hint">Or paste an image from your clipboard while the cover field is focused.</span>
+                <input id="cover-image-upload-input" type="file" accept="image/*" class="visually-hidden" />
+              </div>
+            </div>
+            <div class="rich-editor-shell">
+              <div class="rich-editor-head">
+                <div>
+                  <p class="workspace-kicker">Body editor</p>
+                  <h3>Rich post body</h3>
+                </div>
+                <p class="workspace-copy">Paste images directly, style text, and rearrange structure without hand-writing Markdown.</p>
+              </div>
+              <div class="toolbar" role="toolbar" aria-label="Formatting controls">
+                <select id="font-family-select" aria-label="Font family">
+                  <option value="inherit">Body font</option>
+                  <option value="Georgia, serif">Serif</option>
+                  <option value="'Trebuchet MS', sans-serif">Grotesk</option>
+                  <option value="'Courier New', monospace">Mono</option>
+                </select>
+                <select id="font-size-select" aria-label="Font size">
+                  <option value="3">Normal</option>
+                  <option value="2">Small</option>
+                  <option value="4">Large</option>
+                  <option value="5">XL</option>
+                </select>
+                <button type="button" data-command="bold"><strong>B</strong></button>
+                <button type="button" data-command="italic"><em>I</em></button>
+                <button type="button" data-command="underline"><u>U</u></button>
+                <button type="button" data-command="formatBlock" data-value="<h2>">H2</button>
+                <button type="button" data-command="formatBlock" data-value="<h3>">H3</button>
+                <button type="button" data-command="formatBlock" data-value="<blockquote>">Quote</button>
+                <button type="button" data-command="insertUnorderedList">Bullets</button>
+                <button type="button" data-command="justifyLeft">Left</button>
+                <button type="button" data-command="justifyCenter">Center</button>
+                <button id="insert-button-link-button" type="button">Button</button>
+                <button id="insert-citation-link-button" type="button">Citation</button>
+                <label class="toolbar-swatch">
+                  <span>Text</span>
+                  <input id="text-color-input" type="color" value="#1f2430" />
+                </label>
+                <label class="toolbar-swatch">
+                  <span>Highlight</span>
+                  <input id="highlight-color-input" type="color" value="#f3d9a6" />
+                </label>
+              </div>
+              <div
+                id="post-body-editor"
+                class="rich-editor"
+                contenteditable="true"
+                spellcheck="true"
+                data-placeholder="Start writing here. Paste an image from your clipboard or use Insert image."
+              ></div>
+              <input id="image-upload-input" type="file" accept="image/*" class="visually-hidden" />
+            </div>
+          </div>
+          <aside class="composer-preview-panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Composer preview</p>
+                <h2>Live post preview</h2>
+              </div>
+              <a id="open-public-post-link" href="/" class="text-link preview-link">Open public version</a>
+            </div>
+            <article id="post-preview-modal" class="post-preview"></article>
+          </aside>
+        </div>
+      </section>
+    </div>
+    <div id="button-builder-modal" class="composer-modal hidden" aria-hidden="true">
+      <div id="button-builder-backdrop" class="composer-backdrop"></div>
+      <section class="composer-panel button-builder-panel" role="dialog" aria-modal="true" aria-labelledby="button-builder-title">
+        <div class="composer-head">
+          <div>
+            <p class="eyebrow">Post button</p>
+            <h2 id="button-builder-title">Insert button</h2>
+            <p class="composer-copy">Create a linked button with an optional logo from your saved assets or a new upload.</p>
+          </div>
+          <div class="composer-head-actions">
+            <button id="close-button-builder-button" type="button" class="secondary-ink">Close</button>
+          </div>
+        </div>
+        <div class="form-grid post-grid">
+          <label>
+            <span>Button label</span>
+            <input id="button-label-input" type="text" placeholder="View repo" />
+          </label>
+          <label>
+            <span>Link URL</span>
+            <input id="button-url-input" type="url" placeholder="https://example.com" />
+          </label>
+          <label class="full-width">
+            <span>Saved logo</span>
+            <select id="button-logo-select">
+              <option value="">No logo</option>
+            </select>
+          </label>
+          <label class="full-width">
+            <span>Upload new logo</span>
+            <input id="button-logo-upload-input" type="file" accept="image/*" />
+          </label>
+        </div>
+        <p id="button-builder-status" class="workspace-copy">Choose an existing image from `assets/images` or upload a new one into `assets/images/post-buttons/`.</p>
+        <div class="workspace-actions">
+          <button id="save-button-link-button" type="button">Insert button</button>
+        </div>
+      </section>
+    </div>
+    <div id="citation-builder-modal" class="composer-modal hidden" aria-hidden="true">
+      <div id="citation-builder-backdrop" class="composer-backdrop"></div>
+      <section class="composer-panel citation-builder-panel" role="dialog" aria-modal="true" aria-labelledby="citation-builder-title">
+        <div class="composer-head">
+          <div>
+            <p class="eyebrow">Inline citation</p>
+            <h2 id="citation-builder-title">Insert citation</h2>
+            <p class="composer-copy">Drop a quiet inline reference link into the current sentence without turning it into a big callout.</p>
+          </div>
+          <div class="composer-head-actions">
+            <button id="close-citation-builder-button" type="button" class="secondary-ink">Close</button>
+          </div>
+        </div>
+        <div class="form-grid post-grid">
+          <label>
+            <span>Citation label</span>
+            <input id="citation-label-input" type="text" placeholder="source" />
+          </label>
+          <label>
+            <span>Link URL</span>
+            <input id="citation-url-input" type="url" placeholder="https://example.com" />
+          </label>
+        </div>
+        <p id="citation-builder-status" class="workspace-copy">This inserts a small inline citation link at your cursor position.</p>
+        <div class="workspace-actions">
+          <button id="save-citation-link-button" type="button">Insert citation</button>
+        </div>
+      </section>
+    </div>
+    <script src="editor-helpers.js" defer></script>
+    <script src="editor.js" defer></script>
+    <script src="editor-events.js" defer></script>
+  </body>
+</html>
