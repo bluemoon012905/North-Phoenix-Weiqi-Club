@@ -50,7 +50,6 @@ const elements = {
   categoryGrid: document.getElementById("category-grid"),
   featuredGrid: document.getElementById("featured-grid"),
   postGrid: document.getElementById("post-grid"),
-  aboutStrip: document.getElementById("about-strip"),
   searchInput: document.getElementById("search-input"),
   categoryFilter: document.getElementById("category-filter"),
 };
@@ -84,7 +83,6 @@ function hydrateFilters() {
 function renderPage() {
   renderHero();
   renderHomepageSections();
-  renderAbout();
   window.BlueshellContent.initLocalDebugPanels();
 }
 
@@ -477,26 +475,6 @@ function renderPostCard(post) {
       </div>
     </a>
   `;
-}
-
-function renderAbout() {
-  const { site } = state.content;
-  elements.aboutStrip.dataset.debugName = "About strip";
-  elements.aboutStrip.innerHTML = `
-    <div class="about-copy">
-      <p class="eyebrow">${escapeHtml(site.aboutEyebrow || "About this archive")}</p>
-      <p>${escapeHtml(site.about)}</p>
-    </div>
-    <div class="hero-actions">
-      <a class="pill-link" href="/about/">${escapeHtml(site.contactLabel)}</a>
-      ${
-        site.feedbackHref
-          ? `<a class="ghost-link" href="${escapeAttribute(site.feedbackHref)}" target="_blank" rel="noreferrer">Leave feedback</a>`
-          : ""
-      }
-    </div>
-  `;
-  window.BlueshellContent.initLocalDebugPanels();
 }
 
 function getFilteredPosts() {
