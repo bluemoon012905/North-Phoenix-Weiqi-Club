@@ -149,8 +149,7 @@ a {
 .post-meta,
 .post-tags,
 .archive-controls,
-.post-nav,
-.about-strip {
+.post-nav {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
@@ -904,11 +903,6 @@ textarea {
   clip-path: var(--panel-edge);
 }
 
-.about-strip {
-  justify-content: space-between;
-  align-items: center;
-}
-
 .games-strip {
   display: flex;
   justify-content: space-between;
@@ -1393,14 +1387,6 @@ body[data-page="games"] .ghost-link {
   }
 }
 
-.about-copy {
-  max-width: 70ch;
-}
-
-.about-copy p:last-child {
-  margin-bottom: 0;
-}
-
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -1465,8 +1451,7 @@ body.debug-panels .debug-panel-label {
 
   .section-heading,
   .archive-heading,
-  .games-strip,
-  .about-strip {
+  .games-strip {
     align-items: start;
     flex-direction: column;
   }
