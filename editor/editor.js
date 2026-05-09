@@ -468,14 +468,11 @@ function renderContentBlockCard(block, index) {
                   {
                     cropToFullBoard: true,
                     viewportOutline: normalizedBlock.viewWindow,
+                    viewportHandles: true,
                   }
                 )}</div>
               </div>
-              <div class="weiqi-overview-actions">
-                <button type="button" class="secondary-ink" data-action="shrink-view" data-content-block-index="${index}">Zoom in</button>
-                <button type="button" class="secondary-ink" data-action="expand-view" data-content-block-index="${index}">Zoom out</button>
-                <button type="button" class="secondary-ink" data-action="reset-view" data-content-block-index="${index}">Full board</button>
-              </div>
+              <p class="weiqi-editor-hint">Drag the crop box to move it. Drag any corner dot to resize it into a rectangular crop.</p>
             </div>
           </div>
           <div class="weiqi-marker-controls ${editorUiState.tool === "marker" ? "" : "hidden"}">
@@ -676,7 +673,7 @@ function getWeiqiEditorHint(block, editorUiState, activeSequence) {
     return `Failure mode. Click the board to build ${activeSequence?.label || "the selected failure line"}.`;
   }
 
-  return "Board mode. Click to place stones on the initial position. Use Zoom in/out or drag the box on the overview board to crop the view.";
+  return "Board mode. Click to place stones on the initial position. Use the overview crop box to choose the visible area.";
 }
 
 function getActiveSequence(block, editorUiState) {
@@ -1388,33 +1385,6 @@ function handleWeiqiBoardPlacement(blockIndex, boardType, event) {
   markDirty();
 }
 
-function moveViewWindowToCoordinate(block, coordinate) {
-  const current = normalizeViewWindow(block.boardSize, block.viewWindow);
-  const width = current.xMax - current.xMin;
-  const height = current.yMax - current.yMin;
-  let xMin = Math.round(coordinate.x - width / 2);
-  let yMin = Math.round(coordinate.y - height / 2);
-  xMin = Math.max(0, Math.min(block.boardSize - 1 - width, xMin));
-  yMin = Math.max(0, Math.min(block.boardSize - 1 - height, yMin));
-  block.viewWindow = normalizeViewWindow(block.boardSize, {
-    xMin,
-    yMin,
-    xMax: xMin + width,
-    yMax: yMin + height,
-  });
-}
-
-function adjustViewWindow(block, delta) {
-  const current = normalizeViewWindow(block.boardSize, block.viewWindow);
-  const next = {
-    xMin: current.xMin - delta,
-    yMin: current.yMin - delta,
-    xMax: current.xMax + delta,
-    yMax: current.yMax + delta,
-  };
-  block.viewWindow = normalizeViewWindow(block.boardSize, next);
-}
-
 function placeStoneInInitialPosition(block, coordinate, tool) {
   const key = getPointKey(coordinate);
   const nextStones = (block.initialPosition || []).filter((stone) => getPointKey(stone) !== key);
@@ -1671,30 +1641,94 @@ function clearFailureSequence(blockIndex) {
   });
 }
 
-function zoomWeiqiView(blockIndex, direction) {
-  withEditableWeiqiBlock(blockIndex, (block) => {
-    if (direction === "reset") {
-      block.viewWindow = getDefaultViewWindow(block.boardSize);
-      return;
-    }
-    adjustViewWindow(block, direction === "in" ? 1 : -1);
-  });
-}
-
 function beginWeiqiViewportDrag(blockIndex, event) {
-  editorState.weiqiViewportDrag = { blockIndex };
-  handleWeiqiBoardPlacement(blockIndex, "overview", event);
+  const post = getCurrentPost();
+  const block = normalizeWeiqiBlock(post?.contentBlocks?.[blockIndex]);
+  const overviewBoard = fields.contentBlockFields.querySelector(`[data-overview-board][data-content-block-index="${blockIndex}"]`);
+  if (!block || !overviewBoard) {
+    return;
+  }
+
+  const startCoordinate = getWeiqiCoordinateFromPointer(overviewBoard, block.boardSize, event, getDefaultViewWindow(block.boardSize));
+  if (!startCoordinate) {
+    return;
+  }
+
+  editorState.weiqiViewportDrag = {
+    blockIndex,
+    handle: event.target.closest("[data-viewport-handle]")?.dataset.viewportHandle || null,
+    startCoordinate,
+    startViewWindow: { ...normalizeViewWindow(block.boardSize, block.viewWindow) },
+  };
 }
 
 function continueWeiqiViewportDrag(event) {
   if (!editorState.weiqiViewportDrag) {
     return;
   }
-  handleWeiqiBoardPlacement(editorState.weiqiViewportDrag.blockIndex, "overview", event);
+
+  const { blockIndex, handle, startCoordinate, startViewWindow } = editorState.weiqiViewportDrag;
+  const post = getCurrentPost();
+  const block = normalizeWeiqiBlock(post?.contentBlocks?.[blockIndex]);
+  const overviewBoard = fields.contentBlockFields.querySelector(`[data-overview-board][data-content-block-index="${blockIndex}"]`);
+  if (!post || !block || !overviewBoard) {
+    return;
+  }
+
+  const coordinate = getWeiqiCoordinateFromPointer(overviewBoard, block.boardSize, event, getDefaultViewWindow(block.boardSize));
+  if (!coordinate) {
+    return;
+  }
+
+  block.viewWindow = handle
+    ? resizeViewWindowFromHandle(block.boardSize, startViewWindow, handle, coordinate)
+    : translateViewWindow(block.boardSize, startViewWindow, startCoordinate, coordinate);
+
+  post.contentBlocks[blockIndex] = normalizeWeiqiBlock(block);
+  renderContentBlockFields(post);
+  renderPostPreview(post);
+  markDirty();
 }
 
 function endWeiqiViewportDrag() {
   editorState.weiqiViewportDrag = null;
+}
+
+function translateViewWindow(boardSize, viewWindow, startCoordinate, coordinate) {
+  const width = viewWindow.xMax - viewWindow.xMin;
+  const height = viewWindow.yMax - viewWindow.yMin;
+  const deltaX = coordinate.x - startCoordinate.x;
+  const deltaY = coordinate.y - startCoordinate.y;
+  let xMin = viewWindow.xMin + deltaX;
+  let yMin = viewWindow.yMin + deltaY;
+  xMin = Math.max(0, Math.min(boardSize - 1 - width, xMin));
+  yMin = Math.max(0, Math.min(boardSize - 1 - height, yMin));
+  return normalizeViewWindow(boardSize, {
+    xMin,
+    yMin,
+    xMax: xMin + width,
+    yMax: yMin + height,
+  });
+}
+
+function resizeViewWindowFromHandle(boardSize, viewWindow, handle, coordinate) {
+  const minSpan = Math.min(4, boardSize - 1);
+  let { xMin, yMin, xMax, yMax } = viewWindow;
+
+  if (handle === "nw" || handle === "sw") {
+    xMin = Math.max(0, Math.min(xMax - minSpan, coordinate.x));
+  }
+  if (handle === "ne" || handle === "se") {
+    xMax = Math.min(boardSize - 1, Math.max(xMin + minSpan, coordinate.x));
+  }
+  if (handle === "nw" || handle === "ne") {
+    yMin = Math.max(0, Math.min(yMax - minSpan, coordinate.y));
+  }
+  if (handle === "sw" || handle === "se") {
+    yMax = Math.min(boardSize - 1, Math.max(yMin + minSpan, coordinate.y));
+  }
+
+  return normalizeViewWindow(boardSize, { xMin, yMin, xMax, yMax });
 }
 
 function syncSiteFields() {

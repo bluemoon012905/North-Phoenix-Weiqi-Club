@@ -33,10 +33,10 @@
       {
         "id": "archive",
         "type": "archive-posts",
-        "eyebrow": "Archive",
-        "title": "Browse everything",
-        "description": "",
-        "enabled": false
+        "eyebrow": "Blog",
+        "title": "Blogs",
+        "description": "Posts, notes, and updates from the club.",
+        "enabled": true
       }
     ]
   },

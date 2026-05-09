@@ -498,7 +498,7 @@ const BlueshellWeiqi = (() => {
       .join("");
 
     const viewportMarkup = options.viewportOutline
-      ? renderViewportOutline(options.viewportOutline, boardSize)
+      ? renderViewportOutline(options.viewportOutline, boardSize, options.viewportHandles)
       : "";
 
     return `
@@ -513,22 +513,39 @@ const BlueshellWeiqi = (() => {
     `;
   }
 
-  function renderViewportOutline(viewWindow, boardSize) {
+  function renderViewportOutline(viewWindow, boardSize, includeHandles = false) {
     const normalizedViewWindow = normalizeViewWindow(boardSize, viewWindow);
     const metrics = getBoardMetrics(boardSize, getDefaultViewWindow(boardSize));
     const topLeft = getSvgPoint({ x: normalizedViewWindow.xMin, y: normalizedViewWindow.yMin }, getDefaultViewWindow(boardSize), metrics);
     const bottomRight = getSvgPoint({ x: normalizedViewWindow.xMax, y: normalizedViewWindow.yMax }, getDefaultViewWindow(boardSize), metrics);
     const inset = Math.min(metrics.stepX, metrics.stepY) * 0.45;
+    const handleRadius = Math.max(8, Math.min(metrics.stepX, metrics.stepY) * 0.22);
+    const handles = includeHandles
+      ? [
+          { key: "nw", point: topLeft },
+          { key: "ne", point: { cx: bottomRight.cx, cy: topLeft.cy } },
+          { key: "sw", point: { cx: topLeft.cx, cy: bottomRight.cy } },
+          { key: "se", point: bottomRight },
+        ]
+          .map(
+            ({ key, point }) =>
+              `<circle class="weiqi-viewport-handle" data-viewport-handle="${key}" cx="${point.cx}" cy="${point.cy}" r="${handleRadius}"></circle>`
+          )
+          .join("")
+      : "";
 
     return `
-      <rect
-        class="weiqi-viewport-outline"
-        x="${topLeft.cx - inset}"
-        y="${topLeft.cy - inset}"
-        width="${bottomRight.cx - topLeft.cx + inset * 2}"
-        height="${bottomRight.cy - topLeft.cy + inset * 2}"
-        rx="10"
-      ></rect>
+      <g class="weiqi-viewport-editor">
+        <rect
+          class="weiqi-viewport-outline"
+          x="${topLeft.cx - inset}"
+          y="${topLeft.cy - inset}"
+          width="${bottomRight.cx - topLeft.cx + inset * 2}"
+          height="${bottomRight.cy - topLeft.cy + inset * 2}"
+          rx="10"
+        ></rect>
+        ${handles}
+      </g>
     `;
   }
 

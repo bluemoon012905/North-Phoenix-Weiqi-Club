@@ -597,6 +597,14 @@ button.danger:hover {
   stroke: rgba(16, 26, 40, 0.76);
   stroke-width: 4;
   stroke-dasharray: 12 8;
+  cursor: move;
+}
+
+.weiqi-viewport-handle {
+  fill: #f5f8fc;
+  stroke: rgba(16, 26, 40, 0.88);
+  stroke-width: 4;
+  cursor: move;
 }
 
 .weiqi-stone {

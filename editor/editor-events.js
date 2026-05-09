@@ -309,18 +309,6 @@ fields.contentBlockFields.addEventListener("click", (event) => {
         clearFailureSequence(blockIndex);
         return;
       }
-      if (actionButton.dataset.action === "shrink-view") {
-        zoomWeiqiView(blockIndex, "in");
-        return;
-      }
-      if (actionButton.dataset.action === "expand-view") {
-        zoomWeiqiView(blockIndex, "out");
-        return;
-      }
-      if (actionButton.dataset.action === "reset-view") {
-        zoomWeiqiView(blockIndex, "reset");
-        return;
-      }
     } catch (error) {
       setStatus(error.message);
       return;
@@ -336,20 +324,13 @@ fields.contentBlockFields.addEventListener("click", (event) => {
     }
     return;
   }
-
-  const overviewBoard = event.target.closest("[data-overview-board]");
-  if (overviewBoard) {
-    try {
-      handleWeiqiBoardPlacement(Number(overviewBoard.dataset.contentBlockIndex), "overview", event);
-    } catch (error) {
-      setStatus(error.message);
-    }
-  }
 });
 
 fields.contentBlockFields.addEventListener("mousedown", (event) => {
   const overviewBoard = event.target.closest("[data-overview-board]");
-  if (!overviewBoard) {
+  const viewportHandle = event.target.closest("[data-viewport-handle]");
+  const viewportOutline = event.target.closest(".weiqi-viewport-outline");
+  if (!overviewBoard || (!viewportHandle && !viewportOutline)) {
     return;
   }
 
