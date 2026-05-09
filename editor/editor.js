@@ -419,7 +419,7 @@ function renderContentBlockCard(block, index) {
           )}</textarea>
         </label>
       </div>
-      <div class="weiqi-editor-layout" data-weiqi-editor data-content-block-index="${index}" data-editor-key="${escapeAttribute(editorKey)}">
+      <div class="weiqi-editor-layout weiqi-editor-layout--${escapeAttribute(normalizedBlock.mode)}" data-weiqi-editor data-content-block-index="${index}" data-editor-key="${escapeAttribute(editorKey)}">
         <div class="weiqi-editor-main">
           <div class="weiqi-editor-toolbar">
             <div class="weiqi-editor-tools">
@@ -890,6 +890,7 @@ function openComposer() {
     return;
   }
 
+  populateCategorySelect(post.category);
   editorState.composerOpen = true;
   fields.postEditorModal.classList.remove("hidden");
   fields.postEditorModal.setAttribute("aria-hidden", "false");
@@ -1823,7 +1824,7 @@ function createPost() {
     body: "<h2>Start here</h2><p>Write the first draft of this post.</p>",
   });
 
-  populateCategorySelect(nextId);
+  populateCategorySelect(editorState.content.categories[0]?.id || "");
   selectPost(nextId, { openComposer: true });
   markDirty();
   setStatus("Created a new post draft");

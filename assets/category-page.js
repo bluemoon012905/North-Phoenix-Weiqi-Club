@@ -50,7 +50,7 @@ async function loadCategory() {
       <a class="ghost-link" href="/">Back home</a>
     </div>
     <div class="hero-copy">
-      <p class="eyebrow">${categoryHelpers.escapeHtml(category.id)}</p>
+      <p class="eyebrow">${categoryHelpers.escapeHtml(category.name)}</p>
       <h1>${categoryHelpers.escapeHtml(category.name)}</h1>
       <p>${categoryHelpers.escapeHtml(category.description || "")}</p>
     </div>
@@ -86,7 +86,7 @@ function renderPostCard(post, categoryName) {
 }
 
 function renderCategoryHeroDecoration(categoryId) {
-  if (categoryId === "projects") {
+  if (categoryId === "tutorial") {
     return `
       <div class="category-hero-decoration" aria-hidden="true">
         <img
@@ -98,7 +98,7 @@ function renderCategoryHeroDecoration(categoryId) {
     `;
   }
 
-  if (categoryId === "Research") {
+  if (categoryId === "special-topic") {
     return `
       <div class="category-hero-decoration" aria-hidden="true">
         <img

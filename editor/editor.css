@@ -734,6 +734,10 @@ button.danger:hover {
   margin-top: 20px;
 }
 
+.weiqi-editor-layout--static {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .weiqi-editor-main,
 .weiqi-editor-sidebar,
 .weiqi-sequence-panel {
@@ -756,7 +760,7 @@ button.danger:hover {
 
 .weiqi-editor-board-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 200px;
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   align-items: start;
 }
@@ -773,21 +777,25 @@ button.danger:hover {
 
 .weiqi-editor-board-shell .weiqi-board {
   width: 100%;
-  max-width: 860px;
+  max-width: 980px;
 }
 
 .weiqi-editor-overview-shell {
-  max-width: 200px;
+  max-width: 260px;
 }
 
 .weiqi-editor-overview-shell .weiqi-board {
   width: 100%;
-  max-width: 200px;
+  max-width: 260px;
 }
 
 .weiqi-editor-hint {
   margin: 0;
   color: var(--muted);
+}
+
+.weiqi-editor-overview-panel {
+  justify-items: start;
 }
 
 .weiqi-marker-controls {
@@ -839,10 +847,6 @@ button.danger:hover {
 
 @media (max-width: 1180px) {
   .weiqi-editor-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .weiqi-editor-board-grid {
     grid-template-columns: 1fr;
   }
 

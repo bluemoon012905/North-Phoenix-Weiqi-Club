@@ -473,11 +473,11 @@ const BlueshellWeiqi = (() => {
 
     const gridLines = [];
     for (let x = effectiveViewWindow.xMin; x <= effectiveViewWindow.xMax; x += 1) {
-      const offset = metrics.padding + (x - effectiveViewWindow.xMin) * metrics.stepX;
+      const { cx: offset } = getSvgPoint({ x, y: effectiveViewWindow.yMin }, effectiveViewWindow, metrics);
       gridLines.push(`<line x1="${offset}" y1="${metrics.padding}" x2="${offset}" y2="${SVG_DIMENSION - metrics.padding}"></line>`);
     }
     for (let y = effectiveViewWindow.yMin; y <= effectiveViewWindow.yMax; y += 1) {
-      const offset = metrics.padding + (y - effectiveViewWindow.yMin) * metrics.stepY;
+      const { cy: offset } = getSvgPoint({ x: effectiveViewWindow.xMin, y }, effectiveViewWindow, metrics);
       gridLines.push(`<line x1="${metrics.padding}" y1="${offset}" x2="${SVG_DIMENSION - metrics.padding}" y2="${offset}"></line>`);
     }
 
@@ -669,15 +669,11 @@ const BlueshellWeiqi = (() => {
     }
 
     const normalizedViewWindow = normalizeViewWindow(boardSize, viewWindow);
-    const dimension = Math.min(rect.width, rect.height);
-    const padding = (SVG_PADDING / SVG_DIMENSION) * dimension;
-    const span = dimension - padding * 2;
-    const stepX = span / Math.max(1, normalizedViewWindow.xMax - normalizedViewWindow.xMin);
-    const stepY = span / Math.max(1, normalizedViewWindow.yMax - normalizedViewWindow.yMin);
-    const localX = event.clientX - rect.left;
-    const localY = event.clientY - rect.top;
-    const x = Math.round((localX - padding) / stepX) + normalizedViewWindow.xMin;
-    const y = Math.round((localY - padding) / stepY) + normalizedViewWindow.yMin;
+    const metrics = getBoardMetrics(boardSize, normalizedViewWindow);
+    const svgX = ((event.clientX - rect.left) / rect.width) * SVG_DIMENSION;
+    const svgY = ((event.clientY - rect.top) / rect.height) * SVG_DIMENSION;
+    const x = Math.round((svgX - metrics.padding) / metrics.stepX - metrics.leftInset) + normalizedViewWindow.xMin;
+    const y = Math.round((svgY - metrics.padding) / metrics.stepY - metrics.topInset) + normalizedViewWindow.yMin;
 
     if (x < normalizedViewWindow.xMin || x > normalizedViewWindow.xMax || y < normalizedViewWindow.yMin || y > normalizedViewWindow.yMax) {
       return null;

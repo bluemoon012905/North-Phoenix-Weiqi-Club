@@ -344,7 +344,7 @@ function renderCategories() {
     .map(
       (category) => `
         <a class="category-card" href="/category/?category=${encodeURIComponent(category.id)}">
-          <p class="eyebrow">${escapeHtml(category.id)}</p>
+          <p class="eyebrow">${escapeHtml(category.name)}</p>
           <h3>${escapeHtml(category.name)}</h3>
           <p>${escapeHtml(category.description)}</p>
         </a>
