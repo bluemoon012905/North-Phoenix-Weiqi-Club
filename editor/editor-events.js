@@ -103,7 +103,7 @@ fields.toolbar.addEventListener("click", (event) => {
 });
 
 fields.fontFamilySelect.addEventListener("change", (event) => {
-  const value = event.target.value === "inherit" ? "Manrope" : event.target.value;
+  const value = event.target.value === "inherit" ? "Roboto Condensed" : event.target.value;
   applyFormatting("fontName", value);
 });
 
