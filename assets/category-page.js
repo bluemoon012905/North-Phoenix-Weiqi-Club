@@ -23,12 +23,7 @@ async function loadCategory() {
     throw new Error("No category was provided.");
   }
 
-  const response = await fetch("../data/content.json", { cache: "no-store" });
-  if (!response.ok) {
-    throw new Error("Could not load content.");
-  }
-
-  const content = await response.json();
+  const content = await categoryHelpers.loadContentIndex("../");
   const category = (content.categories || []).find((entry) => entry.id === categoryId);
   if (!category) {
     throw new Error("That category does not exist.");

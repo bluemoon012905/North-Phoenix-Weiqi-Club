@@ -28,15 +28,15 @@ async function loadPost() {
     throw new Error("No post was provided.");
   }
 
-  const response = await fetch("../data/content.json", { cache: "no-store" });
-  if (!response.ok) {
-    throw new Error("Could not load content.");
+  const content = await window.BlueshellContent.loadContentIndex("../");
+  const publishedPosts = (content.posts || []).filter((entry) => entry.published !== false);
+  const postIndexEntry = publishedPosts.find((entry) => entry.id === postId);
+  if (!postIndexEntry) {
+    throw new Error("That post does not exist.");
   }
 
-  const content = await response.json();
-  const publishedPosts = (content.posts || []).filter((post) => post.published !== false);
-  const post = publishedPosts.find((entry) => entry.id === postId);
-  if (!post) {
+  const post = await window.BlueshellContent.loadPostById(postId, "../");
+  if (post.published === false) {
     throw new Error("That post does not exist.");
   }
 

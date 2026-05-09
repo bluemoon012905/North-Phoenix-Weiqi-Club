@@ -61,7 +61,6 @@ const fields = {
   postList: document.getElementById("post-list"),
   postSearch: document.getElementById("post-search"),
   newPostButton: document.getElementById("new-post-button"),
-  newCategoryButton: document.getElementById("new-category-button"),
   openPostEditorButton: document.getElementById("open-post-editor-button"),
   saveButton: document.getElementById("save-button"),
   exportButton: document.getElementById("export-button"),
@@ -83,7 +82,6 @@ const fields = {
   editorDescriptionDisplay: document.getElementById("editor-description-display"),
   homePanelFields: document.getElementById("home-panel-fields"),
   newHomePanelButton: document.getElementById("new-home-panel-button"),
-  categoryFields: document.getElementById("category-fields"),
   postEditorHeading: document.getElementById("post-editor-heading"),
   postEditorCaption: document.getElementById("post-editor-caption"),
   postPreview: document.getElementById("post-preview"),
@@ -166,7 +164,6 @@ async function initEditor() {
   document.execCommand("styleWithCSS", false, true);
   populateSiteFields();
   populateHomePanelFields();
-  populateCategoryFields();
   populateCategorySelect();
 
   const firstPost = [...editorState.content.posts].sort(byNewestDate)[0];
@@ -266,35 +263,6 @@ function populateHomePanelFields() {
         </div>
       `;
     })
-    .join("");
-}
-
-function populateCategoryFields() {
-  fields.categoryFields.innerHTML = editorState.content.categories
-    .map(
-      (category, index) => `
-        <div class="category-card">
-          <div class="category-card-head">
-            <p class="workspace-kicker">Panel ${index + 1}</p>
-            <button type="button" class="danger category-delete-button" data-category-index="${index}">Delete</button>
-          </div>
-          <label>
-            <span>Category ID</span>
-            <input data-category-index="${index}" data-key="id" type="text" value="${escapeHtml(category.id)}" />
-          </label>
-          <label>
-            <span>Name</span>
-            <input data-category-index="${index}" data-key="name" type="text" value="${escapeHtml(category.name)}" />
-          </label>
-          <label>
-            <span>Description</span>
-            <textarea data-category-index="${index}" data-key="description" rows="4">${escapeHtml(
-              category.description
-            )}</textarea>
-          </label>
-        </div>
-      `
-    )
     .join("");
 }
 
@@ -423,7 +391,7 @@ function openComposer() {
   document.body.style.overflow = "hidden";
   fields.composerTitle.textContent = post.title || "Untitled";
   fields.composerSubtitle.textContent =
-    "Write, format, paste images, then save everything back into the site JSON.";
+    "Write, format, paste images, then save everything back into the site content files.";
   applyComposerPreviewVisibility();
   window.setTimeout(() => {
     fields.postTitle.focus();
@@ -616,55 +584,6 @@ function syncHomePanelFields() {
   markDirty();
 }
 
-function syncCategoryFields() {
-  const previousIds = editorState.content.categories.map((category) => category.id);
-  const inputs = fields.categoryFields.querySelectorAll("[data-category-index]");
-  inputs.forEach((input) => {
-    const categoryIndex = Number(input.dataset.categoryIndex);
-    const key = input.dataset.key;
-    editorState.content.categories[categoryIndex][key] = input.value.trim();
-  });
-
-  editorState.content.categories.forEach((category, index) => {
-    const oldId = previousIds[index];
-    if (!oldId || oldId === category.id) {
-      return;
-    }
-
-    editorState.content.posts.forEach((post) => {
-      if (post.category === oldId) {
-        post.category = category.id;
-      }
-    });
-  });
-  markDirty();
-}
-
-function createCategory() {
-  syncCategoryFields();
-  const baseId = "new-panel";
-  let suffix = 1;
-  let nextId = baseId;
-  while (editorState.content.categories.some((category) => category.id === nextId)) {
-    suffix += 1;
-    nextId = `${baseId}-${suffix}`;
-  }
-
-  editorState.content.categories.push({
-    id: nextId,
-    name: "New panel",
-    description: "Describe what belongs in this section.",
-  });
-
-  populateCategoryFields();
-  populateCategorySelect(getCurrentPost()?.category);
-  if (!getCurrentPost()) {
-    renderWorkspaceState();
-  }
-  markDirty();
-  setStatus("Added a new panel");
-}
-
 function createHomePanel() {
   syncHomePanelFields();
   const nextId = `custom-panel-${Date.now()}`;
@@ -691,35 +610,6 @@ function deleteHomePanel(panelIndex) {
   populateHomePanelFields();
   markDirty();
   setStatus(`Deleted homepage panel "${panel.title || panel.id}"`);
-}
-
-function deleteCategory(categoryIndex) {
-  if (editorState.content.categories.length <= 1) {
-    setStatus("You need at least one panel.");
-    return;
-  }
-
-  const removedCategory = editorState.content.categories[categoryIndex];
-  if (!removedCategory) {
-    return;
-  }
-
-  editorState.content.categories.splice(categoryIndex, 1);
-  const fallbackCategoryId = editorState.content.categories[0]?.id || "personal";
-
-  editorState.content.posts.forEach((post) => {
-    if (post.category === removedCategory.id) {
-      post.category = fallbackCategoryId;
-    }
-  });
-
-  populateCategoryFields();
-  populateCategorySelect(fallbackCategoryId);
-  syncCurrentPost();
-  renderPostList();
-  renderWorkspaceState();
-  markDirty();
-  setStatus(`Deleted panel "${removedCategory.name || removedCategory.id}"`);
 }
 
 function syncCurrentPost() {
@@ -756,7 +646,6 @@ function syncCurrentPost() {
 function syncAllFields() {
   syncSiteFields();
   syncHomePanelFields();
-  syncCategoryFields();
   syncCurrentPost();
   populateCategorySelect(getCurrentPost()?.category);
 }
@@ -833,7 +722,7 @@ async function saveAllChanges() {
     }
 
     editorState.hasUnsavedChanges = false;
-    setStatus("Saved to data/content.json");
+    setStatus("Saved to data/content.json and data/posts/");
   } finally {
     editorState.saveInFlight = false;
   }
@@ -912,7 +801,7 @@ function renderEditorSidebarCopy() {
   fields.editorEyebrowDisplay.textContent = site.editorEyebrow || "Local editor";
   fields.editorTitleDisplay.textContent = site.editorTitle || site.title || "Blue Shell Almanac";
   fields.editorDescriptionDisplay.textContent =
-    site.editorDescription || "Manage site copy and posts here. Saving writes directly to data/content.json.";
+    site.editorDescription || "Manage site copy and posts here. Saving writes directly to data/content.json and data/posts/.";
 }
 
 function updatePublicLinks(post) {

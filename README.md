@@ -6,8 +6,8 @@ Small static site plus a local-only content editor.
 
 This repo serves two jobs:
 
-- Public site pages rendered in the browser from `data/content.json`
-- A local editor that writes changes back to that same JSON file through a small Node server
+- Public site pages rendered in the browser from `data/content.json` plus `data/posts/`
+- A local editor that writes changes back to those content files through a small Node server
 
 The stack is intentionally simple:
 
@@ -44,7 +44,10 @@ Then open:
 │   ├── contact-page.js
 │   └── index.html
 ├── data/
-│   └── content.json
+│   ├── content.json
+│   └── posts/
+│       ├── index.json
+│       └── <post-id>.json
 ├── docs/
 │   └── site-outline.md
 ├── editor/
@@ -73,7 +76,7 @@ Then open:
 ### Public site
 
 - `index.html` contains the homepage shell and shared top navigation.
-- `assets/app.js` fetches `data/content.json`, renders the homepage hero and section stack, and handles local-only banner affordances like the editor/debug links.
+- `assets/app.js` loads site/category data plus the post index, renders the homepage hero and section stack, and handles local-only banner affordances like the editor/debug links.
 - `assets/category-page.js` renders a single category page from the `category` query parameter.
 - `assets/post-page.js` renders a single post page from the `post` query parameter and includes the browser read-aloud feature.
 - `contact/contact-page.js` renders the contact page and handles copy-to-clipboard for the configured email address.
@@ -82,7 +85,7 @@ Then open:
 
 ### Editor
 
-- `editor/index.html` defines the editor layout, site fields, panel/category controls, and the post composer modal.
+- `editor/index.html` defines the editor layout, site fields, homepage panel controls, and the post composer modal.
 - `editor/editor.js` owns editor state, loading/saving content, rendering form sections, post selection, autosave, and image upload actions.
 - `editor/editor-events.js` wires DOM events to the state-sync functions defined in `editor/editor.js`.
 - `editor/editor-helpers.js` contains editor-specific formatting and sanitizing helpers used by the composer and preview UI.
@@ -90,22 +93,24 @@ Then open:
 
 ### Data
 
-- `data/content.json` is the source of truth for site copy, categories, homepage panel configuration, and posts.
-- Public pages read from it directly with `fetch("../data/content.json")` or `fetch("data/content.json")`.
-- The editor loads and saves the same data through `/api/content`.
+- `data/content.json` stores site copy, categories, and homepage panel configuration.
+- `data/posts/index.json` stores the lightweight post index used by listing pages.
+- `data/posts/<post-id>.json` stores each full post in its own file.
+- Public pages use shared helpers to load the split content model.
+- The editor still loads and saves a combined payload through `/api/content`, and the server splits it back onto disk.
 
 ### Server
 
 - `server.js` serves static files from the repo root.
-- `GET /api/content` returns `data/content.json`.
-- `POST /api/content` validates and writes `data/content.json`.
+- `GET /api/content` returns a combined payload assembled from `data/content.json` and `data/posts/`.
+- `POST /api/content` validates that payload, writes `data/content.json`, writes `data/posts/index.json`, and writes one JSON file per post.
 - `GET /api/image-assets` returns known image files under `assets/images/`.
 - `POST /api/image-assets` saves uploaded images into `assets/images/post-buttons/` or `assets/images/post-covers/`.
 - Unknown routes fall back to `index.html`, which is fine for local development but means this is not a full router.
 
 ## Content Model
 
-`data/content.json` has three top-level collections:
+The combined content payload exposed to the editor has three top-level collections:
 
 - `site`
 - `categories`
@@ -156,11 +161,13 @@ Each post currently contains:
 - `bodyFormat`
 - `body`
 
+On disk, each post lives at `data/posts/<id>.json`, and `data/posts/index.json` stores the listing metadata used by the homepage and category pages.
+
 ## Development Notes
 
 - The editor is intentionally local-only. It checks the hostname and replaces its UI with an unavailable message when not running locally.
 - Shared content helpers and editor helpers intentionally overlap in a few places; they are separate because the editor and public site are loaded independently.
-- The repo still contains some older `Blue Shell Almanac` naming in defaults and server logs. Browser-visible content should be treated as coming from `data/content.json`.
+- The repo still contains some older `Blue Shell Almanac` naming in defaults. Browser-visible content should be treated as coming from `data/content.json` and `data/posts/`.
 
 ## More Detail
 

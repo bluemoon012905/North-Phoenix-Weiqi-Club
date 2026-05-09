@@ -59,12 +59,7 @@ async function loadContent() {
   window.BlueshellContent.initLocalDebugPanels();
   renderTopBanner();
   await initializeTurtleAppearance();
-  const response = await fetch("data/content.json", { cache: "no-store" });
-  if (!response.ok) {
-    throw new Error("Could not load content.");
-  }
-
-  state.content = await response.json();
+  state.content = await window.BlueshellContent.loadContentIndex();
   ensureHomePanels();
   hydrateFilters();
   renderPage();

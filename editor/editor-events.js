@@ -30,14 +30,6 @@ fields.homePanelFields.addEventListener("change", () => {
   syncHomePanelFields();
 });
 
-fields.categoryFields.addEventListener("input", () => {
-  syncCategoryFields();
-  populateCategorySelect(getCurrentPost()?.category);
-  syncCurrentPost();
-  renderPostList();
-  renderWorkspaceState();
-});
-
 [
   fields.postId,
   fields.postTitle,
@@ -186,10 +178,6 @@ fields.newPostButton.addEventListener("click", () => {
   createPost();
 });
 
-fields.newCategoryButton.addEventListener("click", () => {
-  createCategory();
-});
-
 fields.newHomePanelButton.addEventListener("click", () => {
   createHomePanel();
 });
@@ -201,15 +189,6 @@ fields.openPostEditorButton.addEventListener("click", () => {
 
 fields.deletePostButton.addEventListener("click", () => {
   deleteCurrentPost();
-});
-
-fields.categoryFields.addEventListener("click", (event) => {
-  const button = event.target.closest(".category-delete-button");
-  if (!button) {
-    return;
-  }
-
-  deleteCategory(Number(button.dataset.categoryIndex));
 });
 
 fields.homePanelFields.addEventListener("click", (event) => {
@@ -311,7 +290,7 @@ async function autoSaveChanges() {
 
   try {
     await saveAllChanges();
-    setStatus("Autosaved to data/content.json");
+    setStatus("Autosaved to data/content.json and data/posts/");
   } catch (error) {
     setStatus(`Autosave failed: ${error.message}`);
   }

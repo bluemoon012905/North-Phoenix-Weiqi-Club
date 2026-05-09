@@ -27,6 +27,44 @@ const BlueshellContent = {
     },
   ],
 
+  getDataUrl(basePath = "", relativePath = "") {
+    const normalizedBase = basePath ? basePath.replace(/\/?$/, "/") : "";
+    return `${normalizedBase}${relativePath}`;
+  },
+
+  async fetchJson(path) {
+    const response = await fetch(path, { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(`Could not load ${path}.`);
+    }
+
+    return response.json();
+  },
+
+  async loadContentIndex(basePath = "") {
+    const [content, postsIndexPayload] = await Promise.all([
+      BlueshellContent.fetchJson(BlueshellContent.getDataUrl(basePath, "data/content.json")),
+      BlueshellContent.fetchJson(BlueshellContent.getDataUrl(basePath, "data/posts/index.json")).catch(() => ({ posts: [] })),
+    ]);
+
+    const posts = Array.isArray(postsIndexPayload?.posts)
+      ? postsIndexPayload.posts
+      : Array.isArray(postsIndexPayload)
+        ? postsIndexPayload
+        : Array.isArray(content.posts)
+          ? content.posts
+          : [];
+
+    return {
+      ...content,
+      posts,
+    };
+  },
+
+  async loadPostById(postId, basePath = "") {
+    return BlueshellContent.fetchJson(BlueshellContent.getDataUrl(basePath, `data/posts/${encodeURIComponent(postId)}.json`));
+  },
+
   ensureHomePanels(content, defaults = null) {
     const basePanels = defaults || BlueshellContent.DEFAULT_HOME_PANELS;
     const currentPanels = Array.isArray(content.site?.homepagePanels) ? content.site.homepagePanels : [];
