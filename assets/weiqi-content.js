@@ -157,13 +157,9 @@ const BlueshellWeiqi = (() => {
     if (boardElement && state.block.mode === "puzzle") {
       boardElement.addEventListener("keydown", (event) => {
         if (event.key === "Enter" || event.key === " ") {
-          const rect = boardElement.getBoundingClientRect();
-          const syntheticEvent = {
-            clientX: rect.left + rect.width / 2,
-            clientY: rect.top + rect.height / 2,
-          };
           event.preventDefault();
-          handlePuzzleMove(boardElement, state, syntheticEvent, { announceOnly: true });
+          state.status = "Use a mouse or trackpad click on a board intersection to play a move.";
+          renderBlock(element, state);
         }
       });
     }
@@ -236,17 +232,13 @@ const BlueshellWeiqi = (() => {
     }
   }
 
-  function handlePuzzleMove(boardElement, state, event, options = {}) {
+  function handlePuzzleMove(boardElement, state, event) {
     if (state.failed || state.solved) {
       return;
     }
 
     const coordinate = getCoordinateFromPointer(boardElement, state.block.boardSize, event);
     if (!coordinate) {
-      if (options.announceOnly) {
-        state.status = "Click a board intersection to play the next move.";
-        renderBlock(boardElement.closest(BLOCK_SELECTOR), state);
-      }
       return;
     }
 

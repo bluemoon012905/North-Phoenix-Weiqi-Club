@@ -137,6 +137,10 @@ fields.uploadCoverImageButton.addEventListener("click", () => {
   fields.coverImageUploadInput.click();
 });
 
+fields.addWeiqiBlockButton.addEventListener("click", () => {
+  addWeiqiBlock();
+});
+
 fields.coverImageUploadInput.addEventListener("change", async (event) => {
   try {
     const [file] = event.target.files || [];
@@ -172,6 +176,37 @@ fields.postList.addEventListener("click", (event) => {
 
   syncAllFields();
   selectPost(button.dataset.postId, { openComposer: true });
+});
+
+fields.contentBlockFields.addEventListener("input", (event) => {
+  if (event.target.matches('[data-weiqi-key="mode"]')) {
+    if (syncStructuredContentBlocks({ throwOnError: false })) {
+      renderContentBlockFields(getCurrentPost());
+    }
+    return;
+  }
+
+  syncStructuredContentBlocks({ throwOnError: false });
+});
+
+fields.contentBlockFields.addEventListener("change", (event) => {
+  if (event.target.matches('[data-weiqi-key="mode"]')) {
+    if (syncStructuredContentBlocks({ throwOnError: false })) {
+      renderContentBlockFields(getCurrentPost());
+    }
+    return;
+  }
+
+  syncStructuredContentBlocks({ throwOnError: false });
+});
+
+fields.contentBlockFields.addEventListener("click", (event) => {
+  const deleteButton = event.target.closest('[data-action="delete-block"]');
+  if (!deleteButton) {
+    return;
+  }
+
+  deleteContentBlock(Number(deleteButton.dataset.contentBlockIndex));
 });
 
 fields.newPostButton.addEventListener("click", () => {

@@ -285,6 +285,175 @@ function populateCategorySelect(selectedValue = getCurrentPost()?.category || fi
   fields.postCategory.value = nextValue;
 }
 
+function getDefaultWeiqiBlock(mode = "static") {
+  return {
+    type: "weiqi",
+    mode,
+    boardSize: 19,
+    coordinateSystem: "zero-based",
+    caption: mode === "puzzle" ? "New puzzle" : "New Weiqi block",
+    initialPosition: [],
+    markers: [],
+    moves: [],
+    prompt: mode === "puzzle" ? "Black to play. Find the best move." : "",
+    solution: [],
+    failureStates: [],
+    explanation: "",
+  };
+}
+
+function renderContentBlockFields(post) {
+  const blocks = Array.isArray(post?.contentBlocks) ? post.contentBlocks : [];
+  if (!blocks.length) {
+    fields.contentBlockFields.innerHTML = `<p class="empty-state">No structured content blocks yet. Add a Weiqi block to create a board diagram, animation, or puzzle.</p>`;
+    return;
+  }
+
+  fields.contentBlockFields.innerHTML = blocks
+    .map((block, index) => renderContentBlockCard(block, index))
+    .join("");
+}
+
+function renderContentBlockCard(block, index) {
+  if (block.type !== "weiqi") {
+    return `
+      <section class="category-card content-block-card">
+        <div class="category-card-head">
+          <div>
+            <p class="workspace-kicker">Structured block</p>
+            <h3>${escapeHtml(block.type || "unknown")}</h3>
+          </div>
+          <button type="button" class="danger category-delete-button" data-content-block-index="${index}" data-action="delete-block">Delete</button>
+        </div>
+        <label class="full-width">
+          <span>Raw JSON</span>
+          <textarea data-raw-block rows="12">${escapeHtml(JSON.stringify(block, null, 2))}</textarea>
+        </label>
+      </section>
+    `;
+  }
+
+  return `
+    <section class="category-card content-block-card" data-weiqi-card>
+      <div class="category-card-head">
+        <div>
+          <p class="workspace-kicker">Structured block</p>
+          <h3>Weiqi ${escapeHtml(getWeiqiModeLabel(block.mode))}</h3>
+        </div>
+        <button type="button" class="danger category-delete-button" data-content-block-index="${index}" data-action="delete-block">Delete</button>
+      </div>
+      <div class="form-grid post-grid">
+        <label>
+          <span>Type</span>
+          <input data-weiqi-key="type" type="text" value="weiqi" readonly />
+        </label>
+        <label>
+          <span>Mode</span>
+          <select data-weiqi-key="mode">
+            ${["static", "animated", "puzzle"]
+              .map((mode) => `<option value="${mode}" ${block.mode === mode ? "selected" : ""}>${escapeHtml(getWeiqiModeLabel(mode))}</option>`)
+              .join("")}
+          </select>
+        </label>
+        <label>
+          <span>Board size</span>
+          <select data-weiqi-key="boardSize">
+            ${WEIQI_BOARD_SIZES.map(
+              (size) => `<option value="${size}" ${Number(block.boardSize) === size ? "selected" : ""}>${size} x ${size}</option>`
+            ).join("")}
+          </select>
+        </label>
+        <label>
+          <span>Coordinate system</span>
+          <input data-weiqi-key="coordinateSystem" type="text" value="${escapeAttribute(block.coordinateSystem || "zero-based")}" />
+        </label>
+        <label class="full-width">
+          <span>Caption</span>
+          <input data-weiqi-key="caption" type="text" value="${escapeAttribute(block.caption || "")}" />
+        </label>
+        <label class="full-width">
+          <span>Initial position</span>
+          <textarea data-weiqi-key="initialPosition" rows="5" placeholder="black 3 3&#10;white 15 15">${escapeHtml(
+            formatStoneLines(block.initialPosition)
+          )}</textarea>
+          <small class="field-help">One stone per line: <code>color x y</code>. Coordinates are zero-based.</small>
+        </label>
+        <label class="full-width">
+          <span>Markers</span>
+          <textarea data-weiqi-key="markers" rows="4" placeholder="10 10 | A | circle">${escapeHtml(
+            formatMarkerLines(block.markers)
+          )}</textarea>
+          <small class="field-help">One marker per line: <code>x y | label | shape</code>. Shape is optional and supports circle, square, triangle, or cross.</small>
+        </label>
+        <label class="full-width ${block.mode === "animated" ? "" : "hidden"}" data-mode-section="animated">
+          <span>Moves</span>
+          <textarea data-weiqi-key="moves" rows="6" placeholder="black 3 3&#10;white 15 15">${escapeHtml(formatStoneLines(block.moves))}</textarea>
+          <small class="field-help">Ordered move list using <code>color x y</code>.</small>
+        </label>
+        <label class="full-width ${block.mode === "puzzle" ? "" : "hidden"}" data-mode-section="puzzle">
+          <span>Prompt</span>
+          <textarea data-weiqi-key="prompt" rows="3" placeholder="Black to play. Find the best move.">${escapeHtml(block.prompt || "")}</textarea>
+        </label>
+        <label class="full-width ${block.mode === "puzzle" ? "" : "hidden"}" data-mode-section="puzzle">
+          <span>Solution</span>
+          <textarea data-weiqi-key="solution" rows="5" placeholder="black 3 4">${escapeHtml(formatStoneLines(block.solution))}</textarea>
+          <small class="field-help">Viewer move sequence, one move per line.</small>
+        </label>
+        <label class="full-width ${block.mode === "puzzle" ? "" : "hidden"}" data-mode-section="puzzle">
+          <span>Failure states</span>
+          <textarea data-weiqi-key="failureStates" rows="4" placeholder="2 4 | This allows white to connect out.">${escapeHtml(
+            formatFailureLines(block.failureStates)
+          )}</textarea>
+          <small class="field-help">Optional specific wrong moves: <code>x y | message</code>.</small>
+        </label>
+        <label class="full-width ${block.mode === "puzzle" ? "" : "hidden"}" data-mode-section="puzzle">
+          <span>Explanation</span>
+          <textarea data-weiqi-key="explanation" rows="4" placeholder="This move captures or creates the strongest shape.">${escapeHtml(
+            block.explanation || ""
+          )}</textarea>
+        </label>
+      </div>
+    </section>
+  `;
+}
+
+function getWeiqiModeLabel(mode) {
+  if (mode === "animated") {
+    return "Animated";
+  }
+  if (mode === "puzzle") {
+    return "Puzzle";
+  }
+  return "Static";
+}
+
+function formatStoneLines(stones = []) {
+  return (Array.isArray(stones) ? stones : [])
+    .map((stone) => `${stone.color || "black"} ${stone.x} ${stone.y}`)
+    .join("\n");
+}
+
+function formatMarkerLines(markers = []) {
+  return (Array.isArray(markers) ? markers : [])
+    .map((marker) => {
+      const parts = [`${marker.x} ${marker.y}`];
+      if (marker.label || marker.shape) {
+        parts.push(marker.label || "");
+      }
+      if (marker.shape) {
+        parts.push(marker.shape);
+      }
+      return parts.join(" | ");
+    })
+    .join("\n");
+}
+
+function formatFailureLines(failureStates = []) {
+  return (Array.isArray(failureStates) ? failureStates : [])
+    .map((failure) => `${failure.x} ${failure.y} | ${failure.message || ""}`.trim())
+    .join("\n");
+}
+
 function renderPostList() {
   const query = editorState.search.trim().toLowerCase();
   const posts = [...editorState.content.posts]
@@ -342,6 +511,7 @@ function hydratePostUI(post) {
     fields.postFeatured.checked = false;
     fields.postSummary.value = "";
     fields.postCoverImage.value = "";
+    fields.contentBlockFields.innerHTML = `<p class="empty-state">No post selected.</p>`;
     fields.postBodyEditor.innerHTML = "";
     renderPostPreview(null);
     updatePublicLinks(null);
@@ -357,6 +527,7 @@ function hydratePostUI(post) {
   fields.postFeatured.checked = Boolean(post.featured);
   fields.postSummary.value = post.summary || "";
   fields.postCoverImage.value = post.coverImage || "";
+  renderContentBlockFields(post);
   fields.postBodyEditor.innerHTML = getEditableBodyHtml(post);
   renderPostPreview(post);
   updatePublicLinks(post);
@@ -556,6 +727,236 @@ function insertCitationLink() {
   closeCitationBuilder();
 }
 
+function parseCoordinate(value, label) {
+  if (!/^-?\d+$/.test(value)) {
+    throw new Error(`${label} must be an integer.`);
+  }
+  return Number(value);
+}
+
+function assertBoardSize(boardSize) {
+  if (!WEIQI_BOARD_SIZES.includes(boardSize)) {
+    throw new Error(`Board size must be one of ${WEIQI_BOARD_SIZES.join(", ")}.`);
+  }
+}
+
+function assertCoordinateInBounds(x, y, boardSize, label) {
+  if (x < 0 || x >= boardSize || y < 0 || y >= boardSize) {
+    throw new Error(`${label} (${x}, ${y}) is outside a ${boardSize}x${boardSize} board.`);
+  }
+}
+
+function parseStoneText(text, boardSize, label) {
+  const lines = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  return lines.map((line, index) => {
+    const parts = line.split(/\s+/);
+    if (parts.length !== 3) {
+      throw new Error(`${label} line ${index + 1} must use "color x y".`);
+    }
+
+    const [color, rawX, rawY] = parts;
+    if (!WEIQI_STONE_COLORS.has(color)) {
+      throw new Error(`${label} line ${index + 1} must start with black or white.`);
+    }
+
+    const x = parseCoordinate(rawX, `${label} line ${index + 1} x`);
+    const y = parseCoordinate(rawY, `${label} line ${index + 1} y`);
+    assertCoordinateInBounds(x, y, boardSize, `${label} line ${index + 1}`);
+    return { color, x, y };
+  });
+}
+
+function parseMarkerText(text, boardSize) {
+  const lines = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  return lines.map((line, index) => {
+    const [pointPart, labelPart = "", shapePart = ""] = line.split("|").map((part) => part.trim());
+    const pointTokens = pointPart.split(/\s+/);
+    if (pointTokens.length !== 2) {
+      throw new Error(`Marker line ${index + 1} must start with "x y".`);
+    }
+
+    const x = parseCoordinate(pointTokens[0], `Marker line ${index + 1} x`);
+    const y = parseCoordinate(pointTokens[1], `Marker line ${index + 1} y`);
+    assertCoordinateInBounds(x, y, boardSize, `Marker line ${index + 1}`);
+
+    const shape = shapePart.toLowerCase();
+    if (!WEIQI_MARKER_SHAPES.has(shape)) {
+      throw new Error(`Marker line ${index + 1} shape must be circle, square, triangle, cross, or blank.`);
+    }
+
+    return {
+      x,
+      y,
+      ...(labelPart ? { label: labelPart } : {}),
+      ...(shape ? { shape } : {}),
+    };
+  });
+}
+
+function parseFailureText(text, boardSize) {
+  const lines = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  return lines.map((line, index) => {
+    const [pointPart, message = ""] = line.split("|").map((part) => part.trim());
+    const pointTokens = pointPart.split(/\s+/);
+    if (pointTokens.length !== 2) {
+      throw new Error(`Failure line ${index + 1} must start with "x y".`);
+    }
+
+    const x = parseCoordinate(pointTokens[0], `Failure line ${index + 1} x`);
+    const y = parseCoordinate(pointTokens[1], `Failure line ${index + 1} y`);
+    assertCoordinateInBounds(x, y, boardSize, `Failure line ${index + 1}`);
+    return { x, y, ...(message ? { message } : {}) };
+  });
+}
+
+function validateUniqueStonePoints(stones, label) {
+  const seen = new Set();
+  stones.forEach((stone, index) => {
+    const key = `${stone.x},${stone.y}`;
+    if (seen.has(key)) {
+      throw new Error(`${label} item ${index + 1} repeats an occupied point.`);
+    }
+    seen.add(key);
+  });
+}
+
+function validateStoneProgression(initialPosition, sequence, label) {
+  const occupied = new Set(initialPosition.map((stone) => `${stone.x},${stone.y}`));
+  sequence.forEach((stone, index) => {
+    const key = `${stone.x},${stone.y}`;
+    if (occupied.has(key)) {
+      throw new Error(`${label} item ${index + 1} plays on an occupied point.`);
+    }
+    occupied.add(key);
+  });
+}
+
+function collectContentBlocksFromEditor({ throwOnError = true } = {}) {
+  try {
+    const cards = [...fields.contentBlockFields.querySelectorAll(".content-block-card")];
+    return cards.map((card, index) => collectContentBlockFromCard(card, index));
+  } catch (error) {
+    if (throwOnError) {
+      throw error;
+    }
+    setStatus(error.message);
+    return null;
+  }
+}
+
+function collectContentBlockFromCard(card, index) {
+  const rawBlockField = card.querySelector("[data-raw-block]");
+  if (rawBlockField) {
+    const block = JSON.parse(rawBlockField.value);
+    if (!block || typeof block !== "object" || Array.isArray(block)) {
+      throw new Error(`Structured block ${index + 1} must be a JSON object.`);
+    }
+    if (typeof block.type !== "string" || !block.type.trim()) {
+      throw new Error(`Structured block ${index + 1} needs a string type.`);
+    }
+    return block;
+  }
+
+  const mode = card.querySelector('[data-weiqi-key="mode"]').value;
+  const boardSize = Number(card.querySelector('[data-weiqi-key="boardSize"]').value);
+  assertBoardSize(boardSize);
+
+  const coordinateSystem = card.querySelector('[data-weiqi-key="coordinateSystem"]').value.trim() || "zero-based";
+  if (coordinateSystem !== "zero-based") {
+    throw new Error(`Structured block ${index + 1} must use zero-based coordinates.`);
+  }
+
+  const block = {
+    type: "weiqi",
+    mode,
+    boardSize,
+    coordinateSystem,
+    caption: card.querySelector('[data-weiqi-key="caption"]').value.trim(),
+    initialPosition: parseStoneText(card.querySelector('[data-weiqi-key="initialPosition"]').value, boardSize, "Initial position"),
+    markers: parseMarkerText(card.querySelector('[data-weiqi-key="markers"]').value, boardSize),
+  };
+  validateUniqueStonePoints(block.initialPosition, "Initial position");
+
+  if (mode === "animated") {
+    block.moves = parseStoneText(card.querySelector('[data-weiqi-key="moves"]').value, boardSize, "Moves");
+    validateStoneProgression(block.initialPosition, block.moves, "Moves");
+  }
+
+  if (mode === "puzzle") {
+    block.prompt = card.querySelector('[data-weiqi-key="prompt"]').value.trim();
+    block.solution = parseStoneText(card.querySelector('[data-weiqi-key="solution"]').value, boardSize, "Solution");
+    validateStoneProgression(block.initialPosition, block.solution, "Solution");
+    block.failureStates = parseFailureText(card.querySelector('[data-weiqi-key="failureStates"]').value, boardSize);
+    block.explanation = card.querySelector('[data-weiqi-key="explanation"]').value.trim();
+  }
+
+  return block;
+}
+
+function syncStructuredContentBlocks(options = {}) {
+  const post = getCurrentPost();
+  if (!post) {
+    return true;
+  }
+
+  const nextBlocks = collectContentBlocksFromEditor(options);
+  if (!nextBlocks) {
+    return false;
+  }
+
+  post.contentBlocks = nextBlocks;
+  renderPostPreview(post);
+  markDirty();
+  return true;
+}
+
+function addWeiqiBlock(mode = "static") {
+  const post = getCurrentPost();
+  if (!post) {
+    return;
+  }
+
+  if (!syncStructuredContentBlocks({ throwOnError: false })) {
+    return;
+  }
+
+  post.contentBlocks = Array.isArray(post.contentBlocks) ? post.contentBlocks : [];
+  post.contentBlocks.push(getDefaultWeiqiBlock(mode));
+  renderContentBlockFields(post);
+  renderPostPreview(post);
+  markDirty();
+  setStatus("Added a Weiqi content block");
+}
+
+function deleteContentBlock(blockIndex) {
+  const post = getCurrentPost();
+  if (!post || !Array.isArray(post.contentBlocks) || !post.contentBlocks[blockIndex]) {
+    return;
+  }
+
+  if (!syncStructuredContentBlocks({ throwOnError: false })) {
+    return;
+  }
+
+  post.contentBlocks.splice(blockIndex, 1);
+  renderContentBlockFields(post);
+  renderPostPreview(post);
+  markDirty();
+  setStatus("Deleted structured content block");
+}
+
 function syncSiteFields() {
   const { site } = editorState.content;
   site.title = fields.siteTitle.value.trim();
@@ -654,6 +1055,7 @@ function syncAllFields() {
   syncSiteFields();
   syncHomePanelFields();
   syncCurrentPost();
+  syncStructuredContentBlocks();
   populateCategorySelect(getCurrentPost()?.category);
 }
 
@@ -677,6 +1079,7 @@ function createPost() {
     published: false,
     featured: false,
     tags: [],
+    contentBlocks: [],
     bodyFormat: "html",
     body: "<h2>Start here</h2><p>Write the first draft of this post.</p>",
   });
@@ -759,6 +1162,63 @@ function validateBeforeSave() {
   if (editorState.content.posts.some((post) => !post.title.trim())) {
     throw new Error("Every post needs a title before saving.");
   }
+
+  editorState.content.posts.forEach((post, index) => {
+    if (!Array.isArray(post.contentBlocks)) {
+      return;
+    }
+
+    post.contentBlocks.forEach((block, blockIndex) => {
+      if (!block || typeof block !== "object") {
+        throw new Error(`Post ${index + 1} block ${blockIndex + 1} is invalid.`);
+      }
+
+      if (typeof block.type !== "string" || !block.type.trim()) {
+        throw new Error(`Post ${index + 1} block ${blockIndex + 1} needs a type.`);
+      }
+
+      if (block.type !== "weiqi") {
+        return;
+      }
+
+      assertBoardSize(Number(block.boardSize));
+      if ((block.coordinateSystem || "zero-based") !== "zero-based") {
+        throw new Error(`Post ${index + 1} block ${blockIndex + 1} must use zero-based coordinates.`);
+      }
+
+      ["initialPosition", "moves", "solution"].forEach((key) => {
+        if (!Array.isArray(block[key])) {
+          return;
+        }
+
+        block[key].forEach((stone, stoneIndex) => {
+          if (!WEIQI_STONE_COLORS.has(stone.color)) {
+            throw new Error(`Post ${index + 1} block ${blockIndex + 1} ${key} item ${stoneIndex + 1} has an invalid color.`);
+          }
+          assertCoordinateInBounds(stone.x, stone.y, Number(block.boardSize), `${key} item ${stoneIndex + 1}`);
+        });
+      });
+
+      validateUniqueStonePoints(block.initialPosition || [], "Initial position");
+      if (Array.isArray(block.moves)) {
+        validateStoneProgression(block.initialPosition || [], block.moves, "Moves");
+      }
+      if (Array.isArray(block.solution)) {
+        validateStoneProgression(block.initialPosition || [], block.solution, "Solution");
+      }
+
+      (block.markers || []).forEach((marker, markerIndex) => {
+        assertCoordinateInBounds(marker.x, marker.y, Number(block.boardSize), `marker ${markerIndex + 1}`);
+        if (marker.shape && !WEIQI_MARKER_SHAPES.has(marker.shape)) {
+          throw new Error(`Post ${index + 1} block ${blockIndex + 1} marker ${markerIndex + 1} has an invalid shape.`);
+        }
+      });
+
+      (block.failureStates || []).forEach((failure, failureIndex) => {
+        assertCoordinateInBounds(failure.x, failure.y, Number(block.boardSize), `failure state ${failureIndex + 1}`);
+      });
+    });
+  });
 }
 
 function renderPostPreview(post) {
@@ -773,6 +1233,7 @@ function renderPostPreview(post) {
 
   const bodyHtml = renderPostBody(post);
   const coverImage = getSafeImageSource(post.coverImage);
+  const structuredContentHtml = renderStructuredContentBlocks(post.contentBlocks);
   const markup = `
     <p class="eyebrow">${escapeHtml(getCategoryName(post.category))}</p>
     <h3 class="preview-title">${escapeHtml(post.title || "Untitled")}</h3>
@@ -796,10 +1257,12 @@ function renderPostPreview(post) {
       }
     </div>
     <div class="preview-body">${bodyHtml}</div>
+    ${structuredContentHtml}
   `;
 
   targets.forEach((target) => {
     target.innerHTML = markup;
+    initWeiqiContent(target);
   });
 }
 

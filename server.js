@@ -13,6 +13,9 @@ const postButtonsDir = path.join(assetsImagesDir, "post-buttons");
 const postCoversDir = path.join(assetsImagesDir, "post-covers");
 const port = process.env.PORT || 4321;
 const host = process.env.HOST || "127.0.0.1";
+const weiqiBoardSizes = new Set([9, 13, 19]);
+const weiqiStoneColors = new Set(["black", "white"]);
+const weiqiMarkerShapes = new Set(["circle", "square", "triangle", "cross"]);
 
 const mimeTypes = {
   ".css": "text/css; charset=utf-8",
@@ -239,7 +242,167 @@ function validateContent(content) {
     }
 
     postIds.add(post.id);
+
+    if (!Array.isArray(post.contentBlocks)) {
+      return;
+    }
+
+    post.contentBlocks.forEach((block, blockIndex) => {
+      validateContentBlock(block, index, blockIndex);
+    });
   });
+}
+
+function validateContentBlock(block, postIndex, blockIndex) {
+  if (!block || typeof block !== "object" || Array.isArray(block)) {
+    throw new Error(`Post ${postIndex + 1} block ${blockIndex + 1} is invalid.`);
+  }
+
+  if (typeof block.type !== "string" || !block.type.trim()) {
+    throw new Error(`Post ${postIndex + 1} block ${blockIndex + 1} needs a type.`);
+  }
+
+  if (block.type !== "weiqi") {
+    return;
+  }
+
+  validateWeiqiBlock(block, postIndex, blockIndex);
+}
+
+function validateWeiqiBlock(block, postIndex, blockIndex) {
+  if (!["static", "animated", "puzzle"].includes(block.mode)) {
+    throw new Error(`Post ${postIndex + 1} block ${blockIndex + 1} has an invalid Weiqi mode.`);
+  }
+
+  if (!weiqiBoardSizes.has(Number(block.boardSize))) {
+    throw new Error(`Post ${postIndex + 1} block ${blockIndex + 1} must use board size 9, 13, or 19.`);
+  }
+
+  if ((block.coordinateSystem || "zero-based") !== "zero-based") {
+    throw new Error(`Post ${postIndex + 1} block ${blockIndex + 1} must use zero-based coordinates.`);
+  }
+
+  validateWeiqiStoneList(block.initialPosition, Number(block.boardSize), `Post ${postIndex + 1} block ${blockIndex + 1} initialPosition`);
+  validateUniqueBoardPoints(block.initialPosition, `Post ${postIndex + 1} block ${blockIndex + 1} initialPosition`);
+
+  if (block.mode === "animated") {
+    validateWeiqiStoneList(block.moves, Number(block.boardSize), `Post ${postIndex + 1} block ${blockIndex + 1} moves`);
+    validateWeiqiStoneProgression(
+      block.initialPosition,
+      block.moves,
+      `Post ${postIndex + 1} block ${blockIndex + 1} moves`
+    );
+  }
+
+  if (block.mode === "puzzle") {
+    if (typeof block.prompt !== "string" || !block.prompt.trim()) {
+      throw new Error(`Post ${postIndex + 1} block ${blockIndex + 1} puzzle needs a prompt.`);
+    }
+
+    validateWeiqiStoneList(block.solution, Number(block.boardSize), `Post ${postIndex + 1} block ${blockIndex + 1} solution`);
+    validateWeiqiStoneProgression(
+      block.initialPosition,
+      block.solution,
+      `Post ${postIndex + 1} block ${blockIndex + 1} solution`
+    );
+    validateWeiqiFailureStates(block.failureStates, Number(block.boardSize), `Post ${postIndex + 1} block ${blockIndex + 1} failureStates`);
+    if (block.explanation != null && typeof block.explanation !== "string") {
+      throw new Error(`Post ${postIndex + 1} block ${blockIndex + 1} explanation must be a string.`);
+    }
+  }
+
+  validateWeiqiMarkers(block.markers, Number(block.boardSize), `Post ${postIndex + 1} block ${blockIndex + 1} markers`);
+}
+
+function validateWeiqiStoneList(list, boardSize, label) {
+  if (!Array.isArray(list)) {
+    throw new Error(`${label} must be an array.`);
+  }
+
+  list.forEach((stone, index) => {
+    if (!stone || typeof stone !== "object") {
+      throw new Error(`${label} item ${index + 1} is invalid.`);
+    }
+    if (!weiqiStoneColors.has(stone.color)) {
+      throw new Error(`${label} item ${index + 1} has an invalid color.`);
+    }
+    validateBoardPoint(stone.x, stone.y, boardSize, `${label} item ${index + 1}`);
+  });
+}
+
+function validateWeiqiMarkers(list, boardSize, label) {
+  if (list == null) {
+    return;
+  }
+  if (!Array.isArray(list)) {
+    throw new Error(`${label} must be an array.`);
+  }
+
+  list.forEach((marker, index) => {
+    if (!marker || typeof marker !== "object") {
+      throw new Error(`${label} item ${index + 1} is invalid.`);
+    }
+
+    validateBoardPoint(marker.x, marker.y, boardSize, `${label} item ${index + 1}`);
+    if (marker.shape != null && !weiqiMarkerShapes.has(marker.shape)) {
+      throw new Error(`${label} item ${index + 1} has an invalid shape.`);
+    }
+  });
+}
+
+function validateWeiqiFailureStates(list, boardSize, label) {
+  if (list == null) {
+    return;
+  }
+  if (!Array.isArray(list)) {
+    throw new Error(`${label} must be an array.`);
+  }
+
+  list.forEach((failure, index) => {
+    if (!failure || typeof failure !== "object") {
+      throw new Error(`${label} item ${index + 1} is invalid.`);
+    }
+    validateBoardPoint(failure.x, failure.y, boardSize, `${label} item ${index + 1}`);
+    if (failure.message != null && typeof failure.message !== "string") {
+      throw new Error(`${label} item ${index + 1} message must be a string.`);
+    }
+  });
+}
+
+function validateUniqueBoardPoints(stones, label) {
+  const seen = new Set();
+  stones.forEach((stone, index) => {
+    const key = `${stone.x},${stone.y}`;
+    if (seen.has(key)) {
+      throw new Error(`${label} item ${index + 1} repeats an occupied point.`);
+    }
+    seen.add(key);
+  });
+}
+
+function validateWeiqiStoneProgression(initialPosition, sequence, label) {
+  const occupied = new Set();
+  initialPosition.forEach((stone) => {
+    occupied.add(`${stone.x},${stone.y}`);
+  });
+
+  sequence.forEach((stone, index) => {
+    const key = `${stone.x},${stone.y}`;
+    if (occupied.has(key)) {
+      throw new Error(`${label} item ${index + 1} plays on an occupied point.`);
+    }
+    occupied.add(key);
+  });
+}
+
+function validateBoardPoint(x, y, boardSize, label) {
+  if (!Number.isInteger(x) || !Number.isInteger(y)) {
+    throw new Error(`${label} must use integer x and y coordinates.`);
+  }
+
+  if (x < 0 || x >= boardSize || y < 0 || y >= boardSize) {
+    throw new Error(`${label} is outside the ${boardSize}x${boardSize} board.`);
+  }
 }
 
 function listImageAssets(response) {

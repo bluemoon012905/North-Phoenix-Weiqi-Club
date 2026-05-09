@@ -1,4 +1,5 @@
 const { escapeHtml, formatDate, renderPostBody, escapeAttribute, getSafeImageSource } = window.BlueshellContent;
+const { renderStructuredContentBlocks, init: initWeiqiContent } = window.BlueshellWeiqi;
 const speechState = {
   supported: "speechSynthesis" in window && "SpeechSynthesisUtterance" in window,
   active: false,
@@ -94,7 +95,10 @@ async function loadPost() {
       </div>
     </div>
     <div class="post-body">${renderPostBody(post)}</div>
+    ${renderStructuredContentBlocks(post.contentBlocks)}
   `;
+
+  initWeiqiContent(document.getElementById("post-shell"));
 
   bindReadAloud(post);
 }

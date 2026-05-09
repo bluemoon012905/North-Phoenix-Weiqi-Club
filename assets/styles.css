@@ -26,6 +26,10 @@ html {
   scroll-behavior: smooth;
 }
 
+.hidden {
+  display: none !important;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -865,6 +869,175 @@ textarea {
   padding-left: 18px;
   border-left: 4px solid rgba(33, 93, 143, 0.48);
   color: var(--muted);
+}
+
+.post-structured-content {
+  display: grid;
+  gap: 24px;
+  margin-top: 28px;
+}
+
+.structured-block {
+  padding: 22px;
+  border: 1px solid rgba(16, 26, 40, 0.16);
+  border-radius: var(--radius-md);
+  background: rgba(245, 248, 252, 0.82);
+}
+
+.structured-block-label {
+  margin: 0 0 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.weiqi-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.weiqi-caption,
+.weiqi-prompt,
+.weiqi-meta,
+.weiqi-status,
+.weiqi-explanation,
+.structured-block pre {
+  margin: 0;
+  color: var(--muted);
+}
+
+.weiqi-caption {
+  font-size: 1.02rem;
+  color: var(--ink);
+}
+
+.weiqi-prompt {
+  margin-top: 8px;
+}
+
+.weiqi-meta {
+  font-size: 0.9rem;
+  text-align: right;
+}
+
+.weiqi-board-shell {
+  overflow: hidden;
+  max-width: 620px;
+  border: 1px solid rgba(16, 26, 40, 0.18);
+  border-radius: calc(var(--radius-md) + 4px);
+  background: linear-gradient(180deg, rgba(232, 199, 128, 0.92), rgba(204, 164, 92, 0.92));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.weiqi-board-shell.is-clickable {
+  cursor: crosshair;
+}
+
+.weiqi-board {
+  width: min(100%, 620px);
+  aspect-ratio: 1 / 1;
+}
+
+.weiqi-board-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.weiqi-board-wood {
+  fill: rgba(214, 173, 101, 0.98);
+}
+
+.weiqi-grid-lines line {
+  stroke: rgba(49, 31, 11, 0.78);
+  stroke-width: 2.2;
+}
+
+.weiqi-star-point {
+  fill: rgba(49, 31, 11, 0.9);
+}
+
+.weiqi-stone {
+  stroke-width: 2;
+}
+
+.stone-black {
+  fill: #11161d;
+  stroke: rgba(245, 248, 252, 0.12);
+}
+
+.stone-white {
+  fill: #fbfbfa;
+  stroke: rgba(16, 26, 40, 0.52);
+}
+
+.weiqi-last-move {
+  fill: #f04d2d;
+  stroke: rgba(16, 26, 40, 0.28);
+  stroke-width: 1.2;
+}
+
+.weiqi-marker-shape {
+  fill: none;
+  stroke: rgba(16, 26, 40, 0.86);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.weiqi-marker-shape.on-black,
+.weiqi-marker-label.on-black {
+  stroke: #fbfbfa;
+  fill: #fbfbfa;
+}
+
+.weiqi-marker-shape.on-white,
+.weiqi-marker-label.on-white {
+  stroke: #11161d;
+  fill: #11161d;
+}
+
+.weiqi-marker-label {
+  font-size: 24px;
+  font-weight: 700;
+  fill: rgba(16, 26, 40, 0.9);
+  text-anchor: middle;
+}
+
+.weiqi-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.weiqi-status {
+  margin-top: 12px;
+}
+
+.weiqi-status.is-error {
+  color: #9f2f25;
+}
+
+.weiqi-status.is-success {
+  color: #2a7349;
+}
+
+.weiqi-explanation {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(16, 26, 40, 0.12);
+}
+
+.structured-block-unsupported pre {
+  overflow: auto;
+  padding: 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(16, 26, 40, 0.06);
 }
 
 .custom-panel-body {

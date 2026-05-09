@@ -66,6 +66,10 @@ a {
   color: inherit;
 }
 
+.hidden {
+  display: none !important;
+}
+
 .editor-shell {
   display: grid;
   grid-template-columns: 320px 1fr;
@@ -75,6 +79,7 @@ a {
 .sidebar,
 .panel,
 .composer-panel,
+.structured-editor-shell,
 .rich-editor-shell,
 .composer-preview-panel,
 .workspace-card,
@@ -260,6 +265,12 @@ button.danger:hover {
   width: 100%;
   padding: 12px 14px;
   clip-path: var(--button-edge);
+}
+
+.form-grid small.field-help {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
 }
 
 .search-box input {
@@ -496,6 +507,169 @@ button.danger:hover {
   gap: 6px;
 }
 
+.post-structured-content {
+  display: grid;
+  gap: 20px;
+  margin-top: 24px;
+}
+
+.structured-block {
+  padding: 18px;
+  border: var(--stroke) solid var(--line-soft);
+  background: rgba(245, 248, 252, 0.76);
+}
+
+.structured-block-label {
+  margin: 0 0 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.weiqi-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.weiqi-caption,
+.weiqi-prompt,
+.weiqi-meta,
+.weiqi-status,
+.weiqi-explanation,
+.structured-block pre {
+  margin: 0;
+  color: var(--muted);
+}
+
+.weiqi-caption {
+  color: var(--ink);
+}
+
+.weiqi-prompt {
+  margin-top: 8px;
+}
+
+.weiqi-meta {
+  font-size: 0.88rem;
+  text-align: right;
+}
+
+.weiqi-board-shell {
+  overflow: hidden;
+  max-width: 520px;
+  border: var(--stroke) solid var(--line-soft);
+  background: linear-gradient(180deg, rgba(224, 188, 120, 0.96), rgba(201, 158, 84, 0.96));
+}
+
+.weiqi-board-shell.is-clickable {
+  cursor: crosshair;
+}
+
+.weiqi-board {
+  width: min(100%, 520px);
+  aspect-ratio: 1 / 1;
+}
+
+.weiqi-board-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.weiqi-board-wood {
+  fill: rgba(214, 173, 101, 0.98);
+}
+
+.weiqi-grid-lines line {
+  stroke: rgba(49, 31, 11, 0.82);
+  stroke-width: 2.2;
+}
+
+.weiqi-star-point {
+  fill: rgba(49, 31, 11, 0.9);
+}
+
+.weiqi-stone {
+  stroke-width: 2;
+}
+
+.stone-black {
+  fill: #101418;
+  stroke: rgba(245, 248, 252, 0.12);
+}
+
+.stone-white {
+  fill: #fbfbfa;
+  stroke: rgba(16, 26, 40, 0.54);
+}
+
+.weiqi-last-move {
+  fill: #f04d2d;
+  stroke: rgba(16, 26, 40, 0.28);
+  stroke-width: 1.2;
+}
+
+.weiqi-marker-shape {
+  fill: none;
+  stroke: rgba(16, 26, 40, 0.86);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.weiqi-marker-shape.on-black,
+.weiqi-marker-label.on-black {
+  stroke: #fbfbfa;
+  fill: #fbfbfa;
+}
+
+.weiqi-marker-shape.on-white,
+.weiqi-marker-label.on-white {
+  stroke: #101418;
+  fill: #101418;
+}
+
+.weiqi-marker-label {
+  font-size: 24px;
+  font-weight: 700;
+  fill: rgba(16, 26, 40, 0.9);
+  text-anchor: middle;
+}
+
+.weiqi-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.weiqi-status {
+  margin-top: 12px;
+}
+
+.weiqi-status.is-error {
+  color: var(--danger);
+}
+
+.weiqi-status.is-success {
+  color: var(--success);
+}
+
+.weiqi-explanation {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: var(--stroke) solid var(--line-soft);
+}
+
+.structured-block-unsupported pre {
+  overflow: auto;
+  padding: 12px;
+  background: rgba(16, 26, 40, 0.05);
+}
+
 .preview-body ul {
   margin: 0;
   padding-left: 22px;
@@ -510,6 +684,24 @@ button.danger:hover {
   background:
     radial-gradient(circle at top right, rgba(77, 143, 196, 0.16), transparent 28%),
     rgba(245, 248, 252, 0.64);
+}
+
+.structured-editor-shell {
+  margin-bottom: 24px;
+  padding: 22px;
+}
+
+.structured-editor-actions {
+  margin: 16px 0 18px;
+}
+
+.content-block-fields {
+  display: grid;
+  gap: 16px;
+}
+
+.content-block-card {
+  padding: 20px;
 }
 
 .workspace-kicker {
