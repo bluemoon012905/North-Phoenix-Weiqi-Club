@@ -19,9 +19,110 @@
       "mode": "static",
       "boardSize": 19,
       "coordinateSystem": "zero-based",
-      "caption": "New Weiqi block",
-      "initialPosition": [],
-      "markers": [],
+      "caption": "Joseki: attach on approach",
+      "initialPosition": [
+        {
+          "color": "black",
+          "x": 15,
+          "y": 3
+        },
+        {
+          "color": "white",
+          "x": 13,
+          "y": 2
+        },
+        {
+          "color": "black",
+          "x": 13,
+          "y": 3
+        },
+        {
+          "color": "white",
+          "x": 12,
+          "y": 3
+        },
+        {
+          "color": "white",
+          "x": 14,
+          "y": 2
+        },
+        {
+          "color": "black",
+          "x": 15,
+          "y": 2
+        },
+        {
+          "color": "black",
+          "x": 13,
+          "y": 4
+        },
+        {
+          "color": "white",
+          "x": 10,
+          "y": 2
+        },
+        {
+          "color": "black",
+          "x": 15,
+          "y": 5
+        }
+      ],
+      "markers": [
+        {
+          "x": 17,
+          "y": 2,
+          "label": "A",
+          "shape": "circle"
+        },
+        {
+          "x": 17,
+          "y": 3,
+          "label": "A",
+          "shape": "circle"
+        },
+        {
+          "x": 17,
+          "y": 4,
+          "label": "A",
+          "shape": "circle"
+        },
+        {
+          "x": 17,
+          "y": 5,
+          "label": "A",
+          "shape": "circle"
+        },
+        {
+          "x": 15,
+          "y": 3,
+          "label": "A",
+          "shape": "circle"
+        },
+        {
+          "x": 15,
+          "y": 2,
+          "label": "A",
+          "shape": "circle"
+        },
+        {
+          "x": 13,
+          "y": 3,
+          "label": "A",
+          "shape": "circle"
+        },
+        {
+          "x": 13,
+          "y": 4,
+          "label": "A",
+          "shape": "circle"
+        },
+        {
+          "x": 15,
+          "y": 5,
+          "label": "A",
+          "shape": "circle"
+        }
+      ],
       "viewWindow": {
         "xMin": 8,
         "yMin": 0,

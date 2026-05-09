@@ -179,18 +179,6 @@ fields.postList.addEventListener("click", (event) => {
 });
 
 fields.contentBlockFields.addEventListener("input", (event) => {
-  const blockIndex = Number(event.target.dataset.contentBlockIndex);
-
-  if (event.target.matches('[data-weiqi-editor-key="markerLabel"]')) {
-    updateWeiqiEditorMeta(blockIndex, "markerLabel", event.target.value);
-    return;
-  }
-
-  if (event.target.matches('[data-weiqi-editor-key="markerShape"]')) {
-    updateWeiqiEditorMeta(blockIndex, "markerShape", event.target.value);
-    return;
-  }
-
   if (event.target.matches('[data-weiqi-key="mode"]')) {
     if (syncStructuredContentBlocks({ throwOnError: false })) {
       renderContentBlockFields(getCurrentPost());
@@ -203,11 +191,6 @@ fields.contentBlockFields.addEventListener("input", (event) => {
 
 fields.contentBlockFields.addEventListener("change", (event) => {
   const blockIndex = Number(event.target.dataset.contentBlockIndex);
-
-  if (event.target.matches('[data-weiqi-editor-key="markerShape"]')) {
-    updateWeiqiEditorMeta(blockIndex, "markerShape", event.target.value);
-    return;
-  }
 
   if (event.target.matches('[data-action="rename-variation"]')) {
     renameAnimatedVariation(blockIndex, event.target.value);
@@ -259,6 +242,10 @@ fields.contentBlockFields.addEventListener("click", (event) => {
       }
       if (actionButton.dataset.action === "set-editor-tool") {
         setWeiqiEditorTool(blockIndex, actionButton.dataset.editorTool);
+        return;
+      }
+      if (actionButton.dataset.action === "set-editor-marker-mode") {
+        setWeiqiEditorMarkerMode(blockIndex, actionButton.dataset.editorMarkerMode);
         return;
       }
       if (actionButton.dataset.action === "add-variation") {

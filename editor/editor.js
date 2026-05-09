@@ -28,6 +28,7 @@ const {
 const WEIQI_BOARD_SIZES = [9, 13, 19];
 const WEIQI_STONE_COLORS = new Set(["black", "white"]);
 const WEIQI_MARKER_SHAPES = new Set(["", "circle", "square", "triangle", "cross"]);
+const WEIQI_MARKER_MODES = new Set(["label-alpha", "label-numeric", "triangle", "square", "erase"]);
 
 const editorState = {
   content: null,
@@ -438,10 +439,21 @@ function renderContentBlockCard(block, index) {
               <button type="button" class="secondary-ink ${editorUiState.layer === "markers" ? "is-active" : ""}" data-action="set-editor-layer" data-editor-layer="markers" data-content-block-index="${index}">Markers</button>
             </div>
             <div class="weiqi-editor-tools">
-              <button type="button" class="secondary-ink ${editorUiState.tool === "black" ? "is-active" : ""}" data-action="set-editor-tool" data-editor-tool="black" data-content-block-index="${index}">Black</button>
-              <button type="button" class="secondary-ink ${editorUiState.tool === "white" ? "is-active" : ""}" data-action="set-editor-tool" data-editor-tool="white" data-content-block-index="${index}">White</button>
-              <button type="button" class="secondary-ink ${editorUiState.tool === "erase" ? "is-active" : ""}" data-action="set-editor-tool" data-editor-tool="erase" data-content-block-index="${index}">Erase</button>
-              <button type="button" class="secondary-ink ${editorUiState.tool === "marker" ? "is-active" : ""}" data-action="set-editor-tool" data-editor-tool="marker" data-content-block-index="${index}">Marker</button>
+              ${
+                editorUiState.layer === "markers"
+                  ? `
+                    <button type="button" class="secondary-ink ${editorUiState.markerMode === "label-alpha" ? "is-active" : ""}" data-action="set-editor-marker-mode" data-editor-marker-mode="label-alpha" data-content-block-index="${index}">A</button>
+                    <button type="button" class="secondary-ink ${editorUiState.markerMode === "label-numeric" ? "is-active" : ""}" data-action="set-editor-marker-mode" data-editor-marker-mode="label-numeric" data-content-block-index="${index}">1</button>
+                    <button type="button" class="secondary-ink ${editorUiState.markerMode === "triangle" ? "is-active" : ""}" data-action="set-editor-marker-mode" data-editor-marker-mode="triangle" data-content-block-index="${index}">Triangle</button>
+                    <button type="button" class="secondary-ink ${editorUiState.markerMode === "square" ? "is-active" : ""}" data-action="set-editor-marker-mode" data-editor-marker-mode="square" data-content-block-index="${index}">Square</button>
+                    <button type="button" class="secondary-ink ${editorUiState.markerMode === "erase" ? "is-active" : ""}" data-action="set-editor-marker-mode" data-editor-marker-mode="erase" data-content-block-index="${index}">Erase</button>
+                  `
+                  : `
+                    <button type="button" class="secondary-ink ${editorUiState.tool === "black" ? "is-active" : ""}" data-action="set-editor-tool" data-editor-tool="black" data-content-block-index="${index}">Black</button>
+                    <button type="button" class="secondary-ink ${editorUiState.tool === "white" ? "is-active" : ""}" data-action="set-editor-tool" data-editor-tool="white" data-content-block-index="${index}">White</button>
+                    <button type="button" class="secondary-ink ${editorUiState.tool === "erase" ? "is-active" : ""}" data-action="set-editor-tool" data-editor-tool="erase" data-content-block-index="${index}">Erase</button>
+                  `
+              }
             </div>
           </div>
           <div class="weiqi-editor-board-grid">
@@ -475,25 +487,6 @@ function renderContentBlockCard(block, index) {
               <p class="weiqi-editor-hint">Drag the crop box to move it. Drag any corner dot to resize it into a rectangular crop.</p>
             </div>
           </div>
-          <div class="weiqi-marker-controls ${editorUiState.tool === "marker" ? "" : "hidden"}">
-            <label>
-              <span>Marker label</span>
-              <input data-weiqi-editor-key="markerLabel" data-content-block-index="${index}" type="text" maxlength="3" value="${escapeAttribute(
-                editorUiState.markerLabel || "A"
-              )}" />
-            </label>
-            <label>
-              <span>Marker shape</span>
-              <select data-weiqi-editor-key="markerShape" data-content-block-index="${index}">
-                ${["circle", "square", "triangle", "cross"]
-                  .map(
-                    (shape) =>
-                      `<option value="${shape}" ${editorUiState.markerShape === shape ? "selected" : ""}>${escapeHtml(shape)}</option>`
-                  )
-                  .join("")}
-              </select>
-            </label>
-          </div>
         </div>
         <aside class="weiqi-editor-sidebar">
           ${sequencePanel}
@@ -522,8 +515,7 @@ function getWeiqiEditorState(blockIndex, block) {
       isOpen: false,
       layer: block.mode === "animated" ? "variation" : block.mode === "puzzle" ? "success" : "initial",
       tool: "black",
-      markerLabel: "A",
-      markerShape: "circle",
+      markerMode: "label-alpha",
       selectedVariationIndex: 0,
       selectedFailureIndex: 0,
     };
@@ -658,7 +650,16 @@ function renderMoveList(moves = []) {
 
 function getWeiqiEditorHint(block, editorUiState, activeSequence) {
   if (editorUiState.layer === "markers") {
-    return `Marker mode. Click the board to add or update ${editorUiState.markerShape} markers with label "${editorUiState.markerLabel}".`;
+    if (editorUiState.markerMode === "label-alpha") {
+      return "Marker mode. Click the board to place letter labels that increment A, B, C.";
+    }
+    if (editorUiState.markerMode === "label-numeric") {
+      return "Marker mode. Click the board to place number labels that increment 1, 2, 3.";
+    }
+    if (editorUiState.markerMode === "triangle" || editorUiState.markerMode === "square") {
+      return `Marker mode. Click the board to place ${editorUiState.markerMode} overlays on intersections or stones.`;
+    }
+    return "Marker mode. Click an existing marker to erase it.";
   }
 
   if (block.mode === "animated" && editorUiState.layer === "variation") {
@@ -1367,7 +1368,7 @@ function handleWeiqiBoardPlacement(blockIndex, boardType, event) {
 
   if (boardType === "overview") {
     moveViewWindowToCoordinate(block, coordinate);
-  } else if (editorUiState.layer === "markers" || editorUiState.tool === "marker") {
+  } else if (editorUiState.layer === "markers") {
     placeMarkerOnBlock(block, coordinate, editorUiState);
   } else if (editorUiState.layer === "initial") {
     placeStoneInInitialPosition(block, coordinate, editorUiState.tool);
@@ -1401,18 +1402,84 @@ function placeStoneInInitialPosition(block, coordinate, tool) {
 function placeMarkerOnBlock(block, coordinate, editorUiState) {
   const key = getPointKey(coordinate);
   const nextMarkers = (block.markers || []).filter((marker) => getPointKey(marker) !== key);
-  if (editorUiState.tool === "erase") {
+  if (editorUiState.markerMode === "erase") {
     block.markers = nextMarkers;
     return;
   }
 
-  nextMarkers.push({
-    x: coordinate.x,
-    y: coordinate.y,
-    label: (editorUiState.markerLabel || "A").slice(0, 3),
-    shape: editorUiState.markerShape || "circle",
-  });
+  const nextMarker = buildMarkerForMode(nextMarkers, coordinate, editorUiState.markerMode);
+  if (!nextMarker) {
+    block.markers = nextMarkers;
+    return;
+  }
+
+  nextMarkers.push(nextMarker);
   block.markers = nextMarkers;
+}
+
+function buildMarkerForMode(markers, coordinate, markerMode) {
+  if (markerMode === "label-alpha") {
+    return {
+      x: coordinate.x,
+      y: coordinate.y,
+      label: getNextAlphabeticMarkerLabel(markers),
+    };
+  }
+
+  if (markerMode === "label-numeric") {
+    return {
+      x: coordinate.x,
+      y: coordinate.y,
+      label: String(getNextNumericMarkerLabel(markers)),
+    };
+  }
+
+  if (markerMode === "triangle" || markerMode === "square") {
+    return {
+      x: coordinate.x,
+      y: coordinate.y,
+      shape: markerMode,
+    };
+  }
+
+  return null;
+}
+
+function getNextAlphabeticMarkerLabel(markers) {
+  const usedIndexes = (markers || [])
+    .map((marker) => getAlphabeticMarkerIndex(marker.label || ""))
+    .filter((value) => Number.isInteger(value) && value >= 0);
+  return getAlphabeticMarkerLabel((usedIndexes.length ? Math.max(...usedIndexes) : -1) + 1);
+}
+
+function getAlphabeticMarkerIndex(label) {
+  if (!/^[A-Z]+$/.test(label)) {
+    return null;
+  }
+
+  let index = 0;
+  for (const character of label) {
+    index = index * 26 + (character.charCodeAt(0) - 64);
+  }
+  return index - 1;
+}
+
+function getAlphabeticMarkerLabel(index) {
+  let value = index + 1;
+  let label = "";
+  while (value > 0) {
+    const remainder = (value - 1) % 26;
+    label = String.fromCharCode(65 + remainder) + label;
+    value = Math.floor((value - 1) / 26);
+  }
+  return label;
+}
+
+function getNextNumericMarkerLabel(markers) {
+  const usedNumbers = (markers || [])
+    .map((marker) => Number(marker.label))
+    .filter((value) => Number.isInteger(value) && value > 0);
+  return (usedNumbers.length ? Math.max(...usedNumbers) : 0) + 1;
 }
 
 function appendStoneToVariation(block, editorUiState, coordinate) {
@@ -1492,13 +1559,14 @@ function setWeiqiEditorTool(blockIndex, tool) {
   renderContentBlockFields(post);
 }
 
-function updateWeiqiEditorMeta(blockIndex, key, value) {
+function setWeiqiEditorMarkerMode(blockIndex, markerMode) {
   const post = getCurrentPost();
   const block = normalizeWeiqiBlock(post?.contentBlocks?.[blockIndex]);
-  if (!block) {
+  if (!block || !WEIQI_MARKER_MODES.has(markerMode)) {
     return;
   }
-  getWeiqiEditorState(blockIndex, block)[key] = value;
+  getWeiqiEditorState(blockIndex, block).markerMode = markerMode;
+  renderContentBlockFields(post);
 }
 
 function addAnimatedVariation(blockIndex) {
