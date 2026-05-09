@@ -179,6 +179,18 @@ fields.postList.addEventListener("click", (event) => {
 });
 
 fields.contentBlockFields.addEventListener("input", (event) => {
+  const blockIndex = Number(event.target.dataset.contentBlockIndex);
+
+  if (event.target.matches('[data-weiqi-editor-key="markerLabel"]')) {
+    updateWeiqiEditorMeta(blockIndex, "markerLabel", event.target.value);
+    return;
+  }
+
+  if (event.target.matches('[data-weiqi-editor-key="markerShape"]')) {
+    updateWeiqiEditorMeta(blockIndex, "markerShape", event.target.value);
+    return;
+  }
+
   if (event.target.matches('[data-weiqi-key="mode"]')) {
     if (syncStructuredContentBlocks({ throwOnError: false })) {
       renderContentBlockFields(getCurrentPost());
@@ -190,6 +202,28 @@ fields.contentBlockFields.addEventListener("input", (event) => {
 });
 
 fields.contentBlockFields.addEventListener("change", (event) => {
+  const blockIndex = Number(event.target.dataset.contentBlockIndex);
+
+  if (event.target.matches('[data-weiqi-editor-key="markerShape"]')) {
+    updateWeiqiEditorMeta(blockIndex, "markerShape", event.target.value);
+    return;
+  }
+
+  if (event.target.matches('[data-action="rename-variation"]')) {
+    renameAnimatedVariation(blockIndex, event.target.value);
+    return;
+  }
+
+  if (event.target.matches('[data-action="rename-failure-sequence"]')) {
+    renameFailureSequence(blockIndex, event.target.value);
+    return;
+  }
+
+  if (event.target.matches('[data-action="edit-failure-message"]')) {
+    editFailureMessage(blockIndex, event.target.value);
+    return;
+  }
+
   if (event.target.matches('[data-weiqi-key="mode"]')) {
     if (syncStructuredContentBlocks({ throwOnError: false })) {
       renderContentBlockFields(getCurrentPost());
@@ -202,11 +236,148 @@ fields.contentBlockFields.addEventListener("change", (event) => {
 
 fields.contentBlockFields.addEventListener("click", (event) => {
   const deleteButton = event.target.closest('[data-action="delete-block"]');
-  if (!deleteButton) {
+  if (deleteButton) {
+    deleteContentBlock(Number(deleteButton.dataset.contentBlockIndex));
     return;
   }
 
-  deleteContentBlock(Number(deleteButton.dataset.contentBlockIndex));
+  const actionButton = event.target.closest("[data-action]");
+  if (actionButton) {
+    const blockIndex = Number(actionButton.dataset.contentBlockIndex);
+    try {
+      if (actionButton.dataset.action === "set-editor-layer") {
+        setWeiqiEditorLayer(blockIndex, actionButton.dataset.editorLayer);
+        return;
+      }
+      if (actionButton.dataset.action === "open-weiqi-editor") {
+        setWeiqiEditorOpen(blockIndex, true);
+        return;
+      }
+      if (actionButton.dataset.action === "close-weiqi-editor") {
+        setWeiqiEditorOpen(blockIndex, false);
+        return;
+      }
+      if (actionButton.dataset.action === "set-editor-tool") {
+        setWeiqiEditorTool(blockIndex, actionButton.dataset.editorTool);
+        return;
+      }
+      if (actionButton.dataset.action === "add-variation") {
+        addAnimatedVariation(blockIndex);
+        return;
+      }
+      if (actionButton.dataset.action === "select-variation-editor") {
+        selectAnimatedVariation(blockIndex, Number(actionButton.dataset.variationIndex));
+        return;
+      }
+      if (actionButton.dataset.action === "delete-variation") {
+        deleteAnimatedVariation(blockIndex);
+        return;
+      }
+      if (actionButton.dataset.action === "remove-last-sequence-move") {
+        removeLastVariationMove(blockIndex);
+        return;
+      }
+      if (actionButton.dataset.action === "clear-sequence") {
+        clearVariation(blockIndex);
+        return;
+      }
+      if (actionButton.dataset.action === "add-failure-sequence") {
+        addFailureSequence(blockIndex);
+        return;
+      }
+      if (actionButton.dataset.action === "select-failure-sequence") {
+        selectFailureSequence(blockIndex, Number(actionButton.dataset.failureIndex));
+        return;
+      }
+      if (actionButton.dataset.action === "delete-failure-sequence") {
+        deleteFailureSequence(blockIndex);
+        return;
+      }
+      if (actionButton.dataset.action === "remove-last-success-move") {
+        removeLastSuccessMove(blockIndex);
+        return;
+      }
+      if (actionButton.dataset.action === "clear-success") {
+        clearSuccessSequence(blockIndex);
+        return;
+      }
+      if (actionButton.dataset.action === "remove-last-failure-move") {
+        removeLastFailureMove(blockIndex);
+        return;
+      }
+      if (actionButton.dataset.action === "clear-failure-sequence") {
+        clearFailureSequence(blockIndex);
+        return;
+      }
+      if (actionButton.dataset.action === "shrink-view") {
+        zoomWeiqiView(blockIndex, "in");
+        return;
+      }
+      if (actionButton.dataset.action === "expand-view") {
+        zoomWeiqiView(blockIndex, "out");
+        return;
+      }
+      if (actionButton.dataset.action === "reset-view") {
+        zoomWeiqiView(blockIndex, "reset");
+        return;
+      }
+    } catch (error) {
+      setStatus(error.message);
+      return;
+    }
+  }
+
+  const editorBoard = event.target.closest("[data-editor-board]");
+  if (editorBoard) {
+    try {
+      handleWeiqiBoardPlacement(Number(editorBoard.dataset.contentBlockIndex), "editor", event);
+    } catch (error) {
+      setStatus(error.message);
+    }
+    return;
+  }
+
+  const overviewBoard = event.target.closest("[data-overview-board]");
+  if (overviewBoard) {
+    try {
+      handleWeiqiBoardPlacement(Number(overviewBoard.dataset.contentBlockIndex), "overview", event);
+    } catch (error) {
+      setStatus(error.message);
+    }
+  }
+});
+
+fields.contentBlockFields.addEventListener("mousedown", (event) => {
+  const overviewBoard = event.target.closest("[data-overview-board]");
+  if (!overviewBoard) {
+    return;
+  }
+
+  event.preventDefault();
+  try {
+    beginWeiqiViewportDrag(Number(overviewBoard.dataset.contentBlockIndex), event);
+  } catch (error) {
+    setStatus(error.message);
+  }
+});
+
+document.addEventListener("mousemove", (event) => {
+  if (!editorState.weiqiViewportDrag) {
+    return;
+  }
+
+  try {
+    continueWeiqiViewportDrag(event);
+  } catch (error) {
+    setStatus(error.message);
+    endWeiqiViewportDrag();
+  }
+});
+
+document.addEventListener("mouseup", () => {
+  if (editorState.weiqiViewportDrag) {
+    endWeiqiViewportDrag();
+  }
 });
 
 fields.newPostButton.addEventListener("click", () => {

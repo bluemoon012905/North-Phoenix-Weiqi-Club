@@ -16,6 +16,7 @@ const host = process.env.HOST || "127.0.0.1";
 const weiqiBoardSizes = new Set([9, 13, 19]);
 const weiqiStoneColors = new Set(["black", "white"]);
 const weiqiMarkerShapes = new Set(["circle", "square", "triangle", "cross"]);
+const minWeiqiViewSpan = 4;
 
 const mimeTypes = {
   ".css": "text/css; charset=utf-8",
@@ -282,16 +283,18 @@ function validateWeiqiBlock(block, postIndex, blockIndex) {
     throw new Error(`Post ${postIndex + 1} block ${blockIndex + 1} must use zero-based coordinates.`);
   }
 
-  validateWeiqiStoneList(block.initialPosition, Number(block.boardSize), `Post ${postIndex + 1} block ${blockIndex + 1} initialPosition`);
-  validateUniqueBoardPoints(block.initialPosition, `Post ${postIndex + 1} block ${blockIndex + 1} initialPosition`);
+  const boardSize = Number(block.boardSize);
+  const initialPosition = Array.isArray(block.initialPosition) ? block.initialPosition : [];
+  validateWeiqiStoneList(initialPosition, boardSize, `Post ${postIndex + 1} block ${blockIndex + 1} initialPosition`);
+  validateUniqueBoardPoints(initialPosition, `Post ${postIndex + 1} block ${blockIndex + 1} initialPosition`);
+  validateWeiqiViewWindow(block.viewWindow, boardSize, `Post ${postIndex + 1} block ${blockIndex + 1} viewWindow`);
 
   if (block.mode === "animated") {
-    validateWeiqiStoneList(block.moves, Number(block.boardSize), `Post ${postIndex + 1} block ${blockIndex + 1} moves`);
-    validateWeiqiStoneProgression(
-      block.initialPosition,
-      block.moves,
-      `Post ${postIndex + 1} block ${blockIndex + 1} moves`
-    );
+    const variations = Array.isArray(block.variations) && block.variations.length ? block.variations : [{ label: "Main line", moves: block.moves || [] }];
+    variations.forEach((variation, variationIndex) => {
+      validateWeiqiStoneList(variation.moves, boardSize, `Post ${postIndex + 1} block ${blockIndex + 1} variation ${variationIndex + 1} moves`);
+      validateWeiqiStoneProgression(initialPosition, variation.moves, `Post ${postIndex + 1} block ${blockIndex + 1} variation ${variationIndex + 1} moves`);
+    });
   }
 
   if (block.mode === "puzzle") {
@@ -299,19 +302,26 @@ function validateWeiqiBlock(block, postIndex, blockIndex) {
       throw new Error(`Post ${postIndex + 1} block ${blockIndex + 1} puzzle needs a prompt.`);
     }
 
-    validateWeiqiStoneList(block.solution, Number(block.boardSize), `Post ${postIndex + 1} block ${blockIndex + 1} solution`);
-    validateWeiqiStoneProgression(
-      block.initialPosition,
-      block.solution,
-      `Post ${postIndex + 1} block ${blockIndex + 1} solution`
-    );
-    validateWeiqiFailureStates(block.failureStates, Number(block.boardSize), `Post ${postIndex + 1} block ${blockIndex + 1} failureStates`);
+    const successSequence = Array.isArray(block.successSequence) ? block.successSequence : Array.isArray(block.solution) ? block.solution : [];
+    validateWeiqiStoneList(successSequence, boardSize, `Post ${postIndex + 1} block ${blockIndex + 1} successSequence`);
+    validateWeiqiStoneProgression(initialPosition, successSequence, `Post ${postIndex + 1} block ${blockIndex + 1} successSequence`);
+
+    const failureSequences = Array.isArray(block.failureSequences)
+      ? block.failureSequences
+      : Array.isArray(block.failureStates)
+        ? block.failureStates.map((failureState) => ({
+            moves: [{ color: successSequence[0]?.color || "black", x: failureState.x, y: failureState.y }],
+            message: failureState.message || "",
+          }))
+        : [];
+
+    validateWeiqiFailureSequences(failureSequences, boardSize, initialPosition, `Post ${postIndex + 1} block ${blockIndex + 1} failureSequences`);
     if (block.explanation != null && typeof block.explanation !== "string") {
       throw new Error(`Post ${postIndex + 1} block ${blockIndex + 1} explanation must be a string.`);
     }
   }
 
-  validateWeiqiMarkers(block.markers, Number(block.boardSize), `Post ${postIndex + 1} block ${blockIndex + 1} markers`);
+  validateWeiqiMarkers(block.markers, boardSize, `Post ${postIndex + 1} block ${blockIndex + 1} markers`);
 }
 
 function validateWeiqiStoneList(list, boardSize, label) {
@@ -367,6 +377,52 @@ function validateWeiqiFailureStates(list, boardSize, label) {
       throw new Error(`${label} item ${index + 1} message must be a string.`);
     }
   });
+}
+
+function validateWeiqiFailureSequences(list, boardSize, initialPosition, label) {
+  if (list == null) {
+    return;
+  }
+  if (!Array.isArray(list)) {
+    throw new Error(`${label} must be an array.`);
+  }
+
+  list.forEach((sequence, index) => {
+    if (!sequence || typeof sequence !== "object") {
+      throw new Error(`${label} item ${index + 1} is invalid.`);
+    }
+    validateWeiqiStoneList(sequence.moves || [], boardSize, `${label} item ${index + 1} moves`);
+    validateWeiqiStoneProgression(initialPosition, sequence.moves || [], `${label} item ${index + 1} moves`);
+    if (sequence.message != null && typeof sequence.message !== "string") {
+      throw new Error(`${label} item ${index + 1} message must be a string.`);
+    }
+  });
+}
+
+function validateWeiqiViewWindow(viewWindow, boardSize, label) {
+  if (viewWindow == null) {
+    return;
+  }
+  if (!viewWindow || typeof viewWindow !== "object") {
+    throw new Error(`${label} must be an object.`);
+  }
+
+  ["xMin", "yMin", "xMax", "yMax"].forEach((key) => {
+    if (!Number.isInteger(viewWindow[key])) {
+      throw new Error(`${label} ${key} must be an integer.`);
+    }
+  });
+
+  validateBoardPoint(viewWindow.xMin, viewWindow.yMin, boardSize, `${label} top-left`);
+  validateBoardPoint(viewWindow.xMax, viewWindow.yMax, boardSize, `${label} bottom-right`);
+  if (viewWindow.xMax < viewWindow.xMin || viewWindow.yMax < viewWindow.yMin) {
+    throw new Error(`${label} has inverted bounds.`);
+  }
+
+  const minSpan = Math.min(minWeiqiViewSpan, boardSize - 1);
+  if (viewWindow.xMax - viewWindow.xMin < minSpan || viewWindow.yMax - viewWindow.yMin < minSpan) {
+    throw new Error(`${label} is too small.`);
+  }
 }
 
 function validateUniqueBoardPoints(stones, label) {

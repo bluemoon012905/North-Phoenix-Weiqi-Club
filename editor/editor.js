@@ -10,7 +10,20 @@ const {
   escapeHtml,
   escapeAttribute,
 } = window.BlueshellEditorHelpers;
-const { renderStructuredContentBlocks, init: initWeiqiContent } = window.BlueshellWeiqi;
+const {
+  renderStructuredContentBlocks,
+  init: initWeiqiContent,
+  normalizeWeiqiBlock,
+  normalizeViewWindow,
+  getDefaultViewWindow,
+  normalizeAnimatedVariations,
+  normalizePuzzleSuccessSequence,
+  normalizePuzzleFailureSequences,
+  buildBoardSvg,
+  getCoordinateFromPointer: getWeiqiCoordinateFromPointer,
+  getPointKey,
+  buildStoneMap,
+} = window.BlueshellWeiqi;
 
 const WEIQI_BOARD_SIZES = [9, 13, 19];
 const WEIQI_STONE_COLORS = new Set(["black", "white"]);
@@ -28,6 +41,8 @@ const editorState = {
   savedSelection: null,
   hasUnsavedChanges: false,
   saveInFlight: false,
+  weiqiEditors: {},
+  weiqiViewportDrag: null,
 };
 
 const AUTO_SAVE_INTERVAL_MS = 60_000;
@@ -286,20 +301,30 @@ function populateCategorySelect(selectedValue = getCurrentPost()?.category || fi
 }
 
 function getDefaultWeiqiBlock(mode = "static") {
-  return {
+  return normalizeWeiqiBlock({
     type: "weiqi",
     mode,
     boardSize: 19,
     coordinateSystem: "zero-based",
-    caption: mode === "puzzle" ? "New puzzle" : "New Weiqi block",
+    caption: mode === "puzzle" ? "New puzzle" : mode === "animated" ? "New animated sequence" : "New Weiqi block",
     initialPosition: [],
     markers: [],
-    moves: [],
+    viewWindow: getDefaultViewWindow(19),
+    variations:
+      mode === "animated"
+        ? [
+            {
+              id: "variation-1",
+              label: "Variation 1",
+              moves: [],
+            },
+          ]
+        : [],
     prompt: mode === "puzzle" ? "Black to play. Find the best move." : "",
-    solution: [],
-    failureStates: [],
+    successSequence: mode === "puzzle" ? [] : [],
+    failureSequences: mode === "puzzle" ? [{ id: "failure-1", label: "Failure 1", moves: [], message: "" }] : [],
     explanation: "",
-  };
+  });
 }
 
 function renderContentBlockFields(post) {
@@ -312,6 +337,7 @@ function renderContentBlockFields(post) {
   fields.contentBlockFields.innerHTML = blocks
     .map((block, index) => renderContentBlockCard(block, index))
     .join("");
+  initWeiqiContent(fields.contentBlockFields);
 }
 
 function renderContentBlockCard(block, index) {
@@ -333,15 +359,30 @@ function renderContentBlockCard(block, index) {
     `;
   }
 
+  const normalizedBlock = normalizeWeiqiBlock(block);
+  const editorKey = getWeiqiEditorKey(index);
+  const editorUiState = getWeiqiEditorState(index, normalizedBlock);
+  const activeSequence = getActiveSequence(normalizedBlock, editorUiState);
+  const boardData = getEditorBoardData(normalizedBlock, editorUiState);
+  const sequencePanel = renderWeiqiSequencePanel(normalizedBlock, editorUiState, index);
+  const collapsedMarkup = renderStructuredContentBlocks([normalizedBlock]);
+
   return `
     <section class="category-card content-block-card" data-weiqi-card>
       <div class="category-card-head">
         <div>
           <p class="workspace-kicker">Structured block</p>
-          <h3>Weiqi ${escapeHtml(getWeiqiModeLabel(block.mode))}</h3>
+          <h3>Weiqi ${escapeHtml(getWeiqiModeLabel(normalizedBlock.mode))}</h3>
         </div>
-        <button type="button" class="danger category-delete-button" data-content-block-index="${index}" data-action="delete-block">Delete</button>
+        <div class="content-block-head-actions">
+          <button type="button" class="secondary-ink" data-content-block-index="${index}" data-action="${editorUiState.isOpen ? "close-weiqi-editor" : "open-weiqi-editor"}">${editorUiState.isOpen ? "Done" : "Edit"}</button>
+          <button type="button" class="danger category-delete-button" data-content-block-index="${index}" data-action="delete-block">Delete</button>
+        </div>
       </div>
+      <div class="weiqi-editor-collapsed ${editorUiState.isOpen ? "hidden" : ""}">
+        ${collapsedMarkup}
+      </div>
+      <div class="${editorUiState.isOpen ? "" : "hidden"}">
       <div class="form-grid post-grid">
         <label>
           <span>Type</span>
@@ -351,7 +392,7 @@ function renderContentBlockCard(block, index) {
           <span>Mode</span>
           <select data-weiqi-key="mode">
             ${["static", "animated", "puzzle"]
-              .map((mode) => `<option value="${mode}" ${block.mode === mode ? "selected" : ""}>${escapeHtml(getWeiqiModeLabel(mode))}</option>`)
+              .map((mode) => `<option value="${mode}" ${normalizedBlock.mode === mode ? "selected" : ""}>${escapeHtml(getWeiqiModeLabel(mode))}</option>`)
               .join("")}
           </select>
         </label>
@@ -359,62 +400,344 @@ function renderContentBlockCard(block, index) {
           <span>Board size</span>
           <select data-weiqi-key="boardSize">
             ${WEIQI_BOARD_SIZES.map(
-              (size) => `<option value="${size}" ${Number(block.boardSize) === size ? "selected" : ""}>${size} x ${size}</option>`
+              (size) => `<option value="${size}" ${Number(normalizedBlock.boardSize) === size ? "selected" : ""}>${size} x ${size}</option>`
             ).join("")}
           </select>
         </label>
-        <label>
-          <span>Coordinate system</span>
-          <input data-weiqi-key="coordinateSystem" type="text" value="${escapeAttribute(block.coordinateSystem || "zero-based")}" />
-        </label>
         <label class="full-width">
           <span>Caption</span>
-          <input data-weiqi-key="caption" type="text" value="${escapeAttribute(block.caption || "")}" />
+          <input data-weiqi-key="caption" type="text" value="${escapeAttribute(normalizedBlock.caption || "")}" />
         </label>
-        <label class="full-width">
-          <span>Initial position</span>
-          <textarea data-weiqi-key="initialPosition" rows="5" placeholder="black 3 3&#10;white 15 15">${escapeHtml(
-            formatStoneLines(block.initialPosition)
-          )}</textarea>
-          <small class="field-help">One stone per line: <code>color x y</code>. Coordinates are zero-based.</small>
-        </label>
-        <label class="full-width">
-          <span>Markers</span>
-          <textarea data-weiqi-key="markers" rows="4" placeholder="10 10 | A | circle">${escapeHtml(
-            formatMarkerLines(block.markers)
-          )}</textarea>
-          <small class="field-help">One marker per line: <code>x y | label | shape</code>. Shape is optional and supports circle, square, triangle, or cross.</small>
-        </label>
-        <label class="full-width ${block.mode === "animated" ? "" : "hidden"}" data-mode-section="animated">
-          <span>Moves</span>
-          <textarea data-weiqi-key="moves" rows="6" placeholder="black 3 3&#10;white 15 15">${escapeHtml(formatStoneLines(block.moves))}</textarea>
-          <small class="field-help">Ordered move list using <code>color x y</code>.</small>
-        </label>
-        <label class="full-width ${block.mode === "puzzle" ? "" : "hidden"}" data-mode-section="puzzle">
+        <label class="full-width ${normalizedBlock.mode === "puzzle" ? "" : "hidden"}" data-mode-section="puzzle">
           <span>Prompt</span>
-          <textarea data-weiqi-key="prompt" rows="3" placeholder="Black to play. Find the best move.">${escapeHtml(block.prompt || "")}</textarea>
+          <textarea data-weiqi-key="prompt" rows="3" placeholder="Black to play. Find the best move.">${escapeHtml(normalizedBlock.prompt || "")}</textarea>
         </label>
-        <label class="full-width ${block.mode === "puzzle" ? "" : "hidden"}" data-mode-section="puzzle">
-          <span>Solution</span>
-          <textarea data-weiqi-key="solution" rows="5" placeholder="black 3 4">${escapeHtml(formatStoneLines(block.solution))}</textarea>
-          <small class="field-help">Viewer move sequence, one move per line.</small>
-        </label>
-        <label class="full-width ${block.mode === "puzzle" ? "" : "hidden"}" data-mode-section="puzzle">
-          <span>Failure states</span>
-          <textarea data-weiqi-key="failureStates" rows="4" placeholder="2 4 | This allows white to connect out.">${escapeHtml(
-            formatFailureLines(block.failureStates)
-          )}</textarea>
-          <small class="field-help">Optional specific wrong moves: <code>x y | message</code>.</small>
-        </label>
-        <label class="full-width ${block.mode === "puzzle" ? "" : "hidden"}" data-mode-section="puzzle">
+        <label class="full-width ${normalizedBlock.mode === "puzzle" ? "" : "hidden"}" data-mode-section="puzzle">
           <span>Explanation</span>
           <textarea data-weiqi-key="explanation" rows="4" placeholder="This move captures or creates the strongest shape.">${escapeHtml(
-            block.explanation || ""
+            normalizedBlock.explanation || ""
           )}</textarea>
         </label>
       </div>
+      <div class="weiqi-editor-layout" data-weiqi-editor data-content-block-index="${index}" data-editor-key="${escapeAttribute(editorKey)}">
+        <div class="weiqi-editor-main">
+          <div class="weiqi-editor-toolbar">
+            <div class="weiqi-editor-tools">
+              <button type="button" class="secondary-ink ${editorUiState.layer === "initial" ? "is-active" : ""}" data-action="set-editor-layer" data-editor-layer="initial" data-content-block-index="${index}">Edit board</button>
+              ${
+                normalizedBlock.mode === "animated"
+                  ? `<button type="button" class="secondary-ink ${editorUiState.layer === "variation" ? "is-active" : ""}" data-action="set-editor-layer" data-editor-layer="variation" data-content-block-index="${index}">Add sequence</button>`
+                  : ""
+              }
+              ${
+                normalizedBlock.mode === "puzzle"
+                  ? `<button type="button" class="secondary-ink ${editorUiState.layer === "success" ? "is-active" : ""}" data-action="set-editor-layer" data-editor-layer="success" data-content-block-index="${index}">Edit success</button>
+                     <button type="button" class="secondary-ink ${editorUiState.layer === "failure" ? "is-active" : ""}" data-action="set-editor-layer" data-editor-layer="failure" data-content-block-index="${index}">Edit failure</button>`
+                  : ""
+              }
+              <button type="button" class="secondary-ink ${editorUiState.layer === "markers" ? "is-active" : ""}" data-action="set-editor-layer" data-editor-layer="markers" data-content-block-index="${index}">Markers</button>
+            </div>
+            <div class="weiqi-editor-tools">
+              <button type="button" class="secondary-ink ${editorUiState.tool === "black" ? "is-active" : ""}" data-action="set-editor-tool" data-editor-tool="black" data-content-block-index="${index}">Black</button>
+              <button type="button" class="secondary-ink ${editorUiState.tool === "white" ? "is-active" : ""}" data-action="set-editor-tool" data-editor-tool="white" data-content-block-index="${index}">White</button>
+              <button type="button" class="secondary-ink ${editorUiState.tool === "erase" ? "is-active" : ""}" data-action="set-editor-tool" data-editor-tool="erase" data-content-block-index="${index}">Erase</button>
+              <button type="button" class="secondary-ink ${editorUiState.tool === "marker" ? "is-active" : ""}" data-action="set-editor-tool" data-editor-tool="marker" data-content-block-index="${index}">Marker</button>
+            </div>
+          </div>
+          <div class="weiqi-editor-board-grid">
+            <div class="weiqi-editor-board-panel">
+              <div class="weiqi-board-shell is-clickable weiqi-editor-board-shell">
+                <div class="weiqi-board" data-editor-board data-content-block-index="${index}">${buildBoardSvg(
+                  normalizedBlock,
+                  boardData.stones,
+                  boardData.markers,
+                  boardData.lastMove,
+                  { viewWindow: normalizedBlock.viewWindow }
+                )}</div>
+              </div>
+              <p class="weiqi-editor-hint">${escapeHtml(getWeiqiEditorHint(normalizedBlock, editorUiState, activeSequence))}</p>
+            </div>
+            <div class="weiqi-editor-overview-panel">
+              <p class="structured-block-label">Zoom window</p>
+              <div class="weiqi-board-shell weiqi-editor-overview-shell">
+                <div class="weiqi-board" data-overview-board data-content-block-index="${index}">${buildBoardSvg(
+                  normalizedBlock,
+                  boardData.allStones,
+                  normalizedBlock.markers || [],
+                  boardData.lastMove,
+                  {
+                    cropToFullBoard: true,
+                    viewportOutline: normalizedBlock.viewWindow,
+                  }
+                )}</div>
+              </div>
+              <div class="weiqi-overview-actions">
+                <button type="button" class="secondary-ink" data-action="shrink-view" data-content-block-index="${index}">Zoom in</button>
+                <button type="button" class="secondary-ink" data-action="expand-view" data-content-block-index="${index}">Zoom out</button>
+                <button type="button" class="secondary-ink" data-action="reset-view" data-content-block-index="${index}">Full board</button>
+              </div>
+            </div>
+          </div>
+          <div class="weiqi-marker-controls ${editorUiState.tool === "marker" ? "" : "hidden"}">
+            <label>
+              <span>Marker label</span>
+              <input data-weiqi-editor-key="markerLabel" data-content-block-index="${index}" type="text" maxlength="3" value="${escapeAttribute(
+                editorUiState.markerLabel || "A"
+              )}" />
+            </label>
+            <label>
+              <span>Marker shape</span>
+              <select data-weiqi-editor-key="markerShape" data-content-block-index="${index}">
+                ${["circle", "square", "triangle", "cross"]
+                  .map(
+                    (shape) =>
+                      `<option value="${shape}" ${editorUiState.markerShape === shape ? "selected" : ""}>${escapeHtml(shape)}</option>`
+                  )
+                  .join("")}
+              </select>
+            </label>
+          </div>
+        </div>
+        <aside class="weiqi-editor-sidebar">
+          ${sequencePanel}
+        </aside>
+      </div>
+      <input data-weiqi-key="coordinateSystem" type="hidden" value="zero-based" />
+      <textarea data-weiqi-key="initialPosition" class="hidden">${escapeHtml(formatStoneLines(normalizedBlock.initialPosition))}</textarea>
+      <textarea data-weiqi-key="markers" class="hidden">${escapeHtml(formatMarkerLines(normalizedBlock.markers))}</textarea>
+      <textarea data-weiqi-key="variations" class="hidden">${escapeHtml(JSON.stringify(normalizedBlock.variations))}</textarea>
+      <textarea data-weiqi-key="successSequence" class="hidden">${escapeHtml(formatStoneLines(normalizedBlock.successSequence))}</textarea>
+      <textarea data-weiqi-key="failureSequences" class="hidden">${escapeHtml(JSON.stringify(normalizedBlock.failureSequences))}</textarea>
+      <textarea data-weiqi-key="viewWindow" class="hidden">${escapeHtml(JSON.stringify(normalizedBlock.viewWindow))}</textarea>
+      </div>
     </section>
   `;
+}
+
+function getWeiqiEditorKey(blockIndex) {
+  return `${editorState.selectedPostId || "post"}:${blockIndex}`;
+}
+
+function getWeiqiEditorState(blockIndex, block) {
+  const key = getWeiqiEditorKey(blockIndex);
+  if (!editorState.weiqiEditors[key]) {
+    editorState.weiqiEditors[key] = {
+      isOpen: false,
+      layer: block.mode === "animated" ? "variation" : block.mode === "puzzle" ? "success" : "initial",
+      tool: "black",
+      markerLabel: "A",
+      markerShape: "circle",
+      selectedVariationIndex: 0,
+      selectedFailureIndex: 0,
+    };
+  }
+
+  const state = editorState.weiqiEditors[key];
+  if (block.mode === "static" && state.layer === "variation") {
+    state.layer = "initial";
+  }
+  if (block.mode !== "puzzle" && (state.layer === "success" || state.layer === "failure")) {
+    state.layer = block.mode === "animated" ? "variation" : "initial";
+  }
+  return state;
+}
+
+function renderWeiqiSequencePanel(block, editorUiState, blockIndex) {
+  if (block.mode === "animated") {
+    const selectedVariation = block.variations[editorUiState.selectedVariationIndex] || block.variations[0];
+    return `
+      <div class="weiqi-sequence-panel">
+        <div class="category-card-head">
+          <div>
+            <p class="structured-block-label">Animation versions</p>
+            <h3>${escapeHtml(selectedVariation?.label || "Variation")}</h3>
+          </div>
+          <button type="button" class="secondary-ink" data-action="add-variation" data-content-block-index="${blockIndex}">Add version</button>
+        </div>
+        <div class="weiqi-sequence-list">
+          ${block.variations
+            .map(
+              (variation, index) => `
+                <button type="button" class="weiqi-sequence-chip ${index === editorUiState.selectedVariationIndex ? "is-active" : ""}" data-action="select-variation-editor" data-content-block-index="${blockIndex}" data-variation-index="${index}">
+                  ${escapeHtml(variation.label)} <span>${variation.moves.length} moves</span>
+                </button>
+              `
+            )
+            .join("")}
+        </div>
+        <label class="full-width">
+          <span>Version label</span>
+          <input data-action="rename-variation" data-content-block-index="${blockIndex}" value="${escapeAttribute(selectedVariation?.label || "")}" />
+        </label>
+        <div class="weiqi-sequence-actions">
+          <button type="button" class="secondary-ink" data-action="remove-last-sequence-move" data-content-block-index="${blockIndex}">Undo move</button>
+          <button type="button" class="secondary-ink" data-action="clear-sequence" data-content-block-index="${blockIndex}">Clear version</button>
+          ${
+            block.variations.length > 1
+              ? `<button type="button" class="danger" data-action="delete-variation" data-content-block-index="${blockIndex}">Delete version</button>`
+              : ""
+          }
+        </div>
+        <ol class="weiqi-move-list">${renderMoveList(selectedVariation?.moves || [])}</ol>
+      </div>
+    `;
+  }
+
+  if (block.mode === "puzzle") {
+    const selectedFailure = block.failureSequences[editorUiState.selectedFailureIndex] || block.failureSequences[0];
+    return `
+      <div class="weiqi-sequence-panel">
+        <div>
+          <p class="structured-block-label">Success line</p>
+          <div class="weiqi-sequence-actions">
+            <button type="button" class="secondary-ink" data-action="remove-last-success-move" data-content-block-index="${blockIndex}">Undo success move</button>
+            <button type="button" class="secondary-ink" data-action="clear-success" data-content-block-index="${blockIndex}">Clear success</button>
+          </div>
+          <ol class="weiqi-move-list">${renderMoveList(block.successSequence)}</ol>
+        </div>
+        <div class="category-card-head">
+          <div>
+            <p class="structured-block-label">Failure lines</p>
+            <h3>${escapeHtml(selectedFailure?.label || "Failure")}</h3>
+          </div>
+          <button type="button" class="secondary-ink" data-action="add-failure-sequence" data-content-block-index="${blockIndex}">Add failure</button>
+        </div>
+        <div class="weiqi-sequence-list">
+          ${block.failureSequences
+            .map(
+              (failureSequence, index) => `
+                <button type="button" class="weiqi-sequence-chip ${index === editorUiState.selectedFailureIndex ? "is-active" : ""}" data-action="select-failure-sequence" data-content-block-index="${blockIndex}" data-failure-index="${index}">
+                  ${escapeHtml(failureSequence.label)} <span>${failureSequence.moves.length} moves</span>
+                </button>
+              `
+            )
+            .join("")}
+        </div>
+        ${
+          selectedFailure
+            ? `
+              <label class="full-width">
+                <span>Failure label</span>
+                <input data-action="rename-failure-sequence" data-content-block-index="${blockIndex}" value="${escapeAttribute(selectedFailure.label || "")}" />
+              </label>
+              <label class="full-width">
+                <span>Failure message</span>
+                <textarea data-action="edit-failure-message" data-content-block-index="${blockIndex}" rows="3">${escapeHtml(selectedFailure.message || "")}</textarea>
+              </label>
+              <div class="weiqi-sequence-actions">
+                <button type="button" class="secondary-ink" data-action="remove-last-failure-move" data-content-block-index="${blockIndex}">Undo failure move</button>
+                <button type="button" class="secondary-ink" data-action="clear-failure-sequence" data-content-block-index="${blockIndex}">Clear failure</button>
+                ${
+                  block.failureSequences.length > 1
+                    ? `<button type="button" class="danger" data-action="delete-failure-sequence" data-content-block-index="${blockIndex}">Delete failure</button>`
+                    : ""
+                }
+              </div>
+              <ol class="weiqi-move-list">${renderMoveList(selectedFailure.moves || [])}</ol>
+            `
+            : `<p class="weiqi-editor-hint">Add a failure line, then place moves on the board.</p>`
+        }
+      </div>
+    `;
+  }
+
+  return `
+    <div class="weiqi-sequence-panel">
+      <p class="structured-block-label">Static diagram</p>
+      <p class="weiqi-editor-hint">Use Edit board to place stones. Switch to Markers to add labeled annotations on top of the position.</p>
+    </div>
+  `;
+}
+
+function renderMoveList(moves = []) {
+  if (!moves.length) {
+    return `<li class="weiqi-move-empty">No moves yet.</li>`;
+  }
+
+  return moves
+    .map((move, index) => `<li>${index + 1}. ${escapeHtml(move.color)} at (${move.x}, ${move.y})</li>`)
+    .join("");
+}
+
+function getWeiqiEditorHint(block, editorUiState, activeSequence) {
+  if (editorUiState.layer === "markers") {
+    return `Marker mode. Click the board to add or update ${editorUiState.markerShape} markers with label "${editorUiState.markerLabel}".`;
+  }
+
+  if (block.mode === "animated" && editorUiState.layer === "variation") {
+    return `Sequence mode. Click the board to append moves to ${activeSequence?.label || "the selected variation"}.`;
+  }
+
+  if (block.mode === "puzzle" && editorUiState.layer === "success") {
+    return "Success mode. Click the board to build the correct answer sequence.";
+  }
+
+  if (block.mode === "puzzle" && editorUiState.layer === "failure") {
+    return `Failure mode. Click the board to build ${activeSequence?.label || "the selected failure line"}.`;
+  }
+
+  return "Board mode. Click to place stones on the initial position. Use Zoom in/out or drag the box on the overview board to crop the view.";
+}
+
+function getActiveSequence(block, editorUiState) {
+  if (block.mode === "animated") {
+    return block.variations[editorUiState.selectedVariationIndex] || block.variations[0] || null;
+  }
+  if (block.mode === "puzzle" && editorUiState.layer === "failure") {
+    return block.failureSequences[editorUiState.selectedFailureIndex] || block.failureSequences[0] || null;
+  }
+  if (block.mode === "puzzle" && editorUiState.layer === "success") {
+    return { label: "Success line", moves: block.successSequence || [] };
+  }
+  return null;
+}
+
+function getEditorBoardData(block, editorUiState) {
+  const allStones = [...(block.initialPosition || [])];
+  const previewSequence = getActiveSequence(block, editorUiState);
+  let lastMove = null;
+
+  if (editorUiState.layer === "variation" && previewSequence) {
+    allStones.push(...previewSequence.moves);
+    lastMove = previewSequence.moves[previewSequence.moves.length - 1] || null;
+  } else if (editorUiState.layer === "success" && block.mode === "puzzle") {
+    allStones.push(...(block.successSequence || []));
+    lastMove = block.successSequence[block.successSequence.length - 1] || null;
+  } else if (editorUiState.layer === "failure" && previewSequence) {
+    allStones.push(...previewSequence.moves);
+    lastMove = previewSequence.moves[previewSequence.moves.length - 1] || null;
+  } else {
+    lastMove = block.initialPosition[block.initialPosition.length - 1] || null;
+  }
+
+  const overlayMarkers =
+    editorUiState.layer === "markers"
+      ? block.markers || []
+      : editorUiState.layer === "variation" || editorUiState.layer === "success" || editorUiState.layer === "failure"
+        ? [
+            ...(block.markers || []),
+            ...buildSequenceMarkers(previewSequence?.moves || []),
+          ]
+        : block.markers || [];
+
+  return {
+    stones: allStones,
+    allStones,
+    markers: overlayMarkers,
+    lastMove,
+  };
+}
+
+function buildSequenceMarkers(moves) {
+  return moves.map((move, index) => ({
+    x: move.x,
+    y: move.y,
+    label: String(index + 1),
+  }));
+}
+
+function extractBlockIndexFromKey(key) {
+  return Number(String(key).split(":").at(-1));
 }
 
 function getWeiqiModeLabel(mode) {
@@ -452,6 +775,10 @@ function formatFailureLines(failureStates = []) {
   return (Array.isArray(failureStates) ? failureStates : [])
     .map((failure) => `${failure.x} ${failure.y} | ${failure.message || ""}`.trim())
     .join("\n");
+}
+
+function serializeViewWindow(viewWindow) {
+  return JSON.stringify(viewWindow || getDefaultViewWindow(19));
 }
 
 function renderPostList() {
@@ -878,7 +1205,7 @@ function collectContentBlockFromCard(card, index) {
     throw new Error(`Structured block ${index + 1} must use zero-based coordinates.`);
   }
 
-  const block = {
+  const block = normalizeWeiqiBlock({
     type: "weiqi",
     mode,
     boardSize,
@@ -886,19 +1213,25 @@ function collectContentBlockFromCard(card, index) {
     caption: card.querySelector('[data-weiqi-key="caption"]').value.trim(),
     initialPosition: parseStoneText(card.querySelector('[data-weiqi-key="initialPosition"]').value, boardSize, "Initial position"),
     markers: parseMarkerText(card.querySelector('[data-weiqi-key="markers"]').value, boardSize),
-  };
+    viewWindow: JSON.parse(card.querySelector('[data-weiqi-key="viewWindow"]').value || "{}"),
+  });
   validateUniqueStonePoints(block.initialPosition, "Initial position");
 
   if (mode === "animated") {
-    block.moves = parseStoneText(card.querySelector('[data-weiqi-key="moves"]').value, boardSize, "Moves");
-    validateStoneProgression(block.initialPosition, block.moves, "Moves");
+    block.variations = normalizeAnimatedVariations({
+      variations: JSON.parse(card.querySelector('[data-weiqi-key="variations"]').value || "[]"),
+    });
+    block.variations.forEach((variation) => validateStoneProgression(block.initialPosition, variation.moves, variation.label || "Variation"));
   }
 
   if (mode === "puzzle") {
     block.prompt = card.querySelector('[data-weiqi-key="prompt"]').value.trim();
-    block.solution = parseStoneText(card.querySelector('[data-weiqi-key="solution"]').value, boardSize, "Solution");
-    validateStoneProgression(block.initialPosition, block.solution, "Solution");
-    block.failureStates = parseFailureText(card.querySelector('[data-weiqi-key="failureStates"]').value, boardSize);
+    block.successSequence = parseStoneText(card.querySelector('[data-weiqi-key="successSequence"]').value, boardSize, "Success sequence");
+    validateStoneProgression(block.initialPosition, block.successSequence, "Success sequence");
+    block.failureSequences = normalizePuzzleFailureSequences({
+      failureSequences: JSON.parse(card.querySelector('[data-weiqi-key="failureSequences"]').value || "[]"),
+    });
+    block.failureSequences.forEach((failureSequence) => validateStoneProgression(block.initialPosition, failureSequence.moves || [], failureSequence.label || "Failure sequence"));
     block.explanation = card.querySelector('[data-weiqi-key="explanation"]').value.trim();
   }
 
@@ -934,6 +1267,7 @@ function addWeiqiBlock(mode = "static") {
 
   post.contentBlocks = Array.isArray(post.contentBlocks) ? post.contentBlocks : [];
   post.contentBlocks.push(getDefaultWeiqiBlock(mode));
+  getWeiqiEditorState(post.contentBlocks.length - 1, post.contentBlocks[post.contentBlocks.length - 1]).isOpen = true;
   renderContentBlockFields(post);
   renderPostPreview(post);
   markDirty();
@@ -955,6 +1289,411 @@ function deleteContentBlock(blockIndex) {
   renderPostPreview(post);
   markDirty();
   setStatus("Deleted structured content block");
+}
+
+function withEditableWeiqiBlock(blockIndex, updater, statusMessage = "") {
+  const post = getCurrentPost();
+  if (!post || !Array.isArray(post.contentBlocks) || !post.contentBlocks[blockIndex]) {
+    return;
+  }
+
+  if (!syncStructuredContentBlocks({ throwOnError: false })) {
+    return;
+  }
+
+  const block = normalizeWeiqiBlock(post.contentBlocks[blockIndex]);
+  updater(block, getWeiqiEditorState(blockIndex, block));
+  post.contentBlocks[blockIndex] = normalizeWeiqiBlock(block);
+  renderContentBlockFields(post);
+  renderPostPreview(post);
+  markDirty();
+  if (statusMessage) {
+    setStatus(statusMessage);
+  }
+}
+
+function updateHiddenWeiqiFields(blockIndex, block) {
+  const card = fields.contentBlockFields.querySelector(`.content-block-card [data-content-block-index="${blockIndex}"]`)?.closest(".content-block-card");
+  if (!card) {
+    return;
+  }
+
+  card.querySelector('[data-weiqi-key="initialPosition"]').value = formatStoneLines(block.initialPosition || []);
+  card.querySelector('[data-weiqi-key="markers"]').value = formatMarkerLines(block.markers || []);
+  const variationsField = card.querySelector('[data-weiqi-key="variations"]');
+  if (variationsField) {
+    variationsField.value = JSON.stringify(block.variations || []);
+  }
+  const successField = card.querySelector('[data-weiqi-key="successSequence"]');
+  if (successField) {
+    successField.value = formatStoneLines(block.successSequence || []);
+  }
+  const failureField = card.querySelector('[data-weiqi-key="failureSequences"]');
+  if (failureField) {
+    failureField.value = JSON.stringify(block.failureSequences || []);
+  }
+  card.querySelector('[data-weiqi-key="viewWindow"]').value = serializeViewWindow(block.viewWindow);
+}
+
+function handleWeiqiBoardPlacement(blockIndex, boardType, event) {
+  const card = event.target.closest(".content-block-card");
+  if (!card) {
+    return;
+  }
+
+  const post = getCurrentPost();
+  if (!post || !Array.isArray(post.contentBlocks) || !post.contentBlocks[blockIndex]) {
+    return;
+  }
+
+  if (!syncStructuredContentBlocks({ throwOnError: false })) {
+    return;
+  }
+
+  const block = normalizeWeiqiBlock(post.contentBlocks[blockIndex]);
+  const editorUiState = getWeiqiEditorState(blockIndex, block);
+  const boardElement = card.querySelector(boardType === "overview" ? "[data-overview-board]" : "[data-editor-board]");
+  if (!boardElement) {
+    return;
+  }
+
+  const coordinate = getWeiqiCoordinateFromPointer(
+    boardElement,
+    block.boardSize,
+    event,
+    boardType === "overview" ? getDefaultViewWindow(block.boardSize) : block.viewWindow
+  );
+  if (!coordinate) {
+    return;
+  }
+
+  if (boardType === "overview") {
+    moveViewWindowToCoordinate(block, coordinate);
+  } else if (editorUiState.layer === "markers" || editorUiState.tool === "marker") {
+    placeMarkerOnBlock(block, coordinate, editorUiState);
+  } else if (editorUiState.layer === "initial") {
+    placeStoneInInitialPosition(block, coordinate, editorUiState.tool);
+  } else if (editorUiState.layer === "variation") {
+    appendStoneToVariation(block, editorUiState, coordinate);
+  } else if (editorUiState.layer === "success") {
+    appendStoneToSuccessSequence(block, coordinate);
+  } else if (editorUiState.layer === "failure") {
+    appendStoneToFailureSequence(block, editorUiState, coordinate);
+  }
+
+  post.contentBlocks[blockIndex] = normalizeWeiqiBlock(block);
+  renderContentBlockFields(post);
+  renderPostPreview(post);
+  markDirty();
+}
+
+function moveViewWindowToCoordinate(block, coordinate) {
+  const current = normalizeViewWindow(block.boardSize, block.viewWindow);
+  const width = current.xMax - current.xMin;
+  const height = current.yMax - current.yMin;
+  let xMin = Math.round(coordinate.x - width / 2);
+  let yMin = Math.round(coordinate.y - height / 2);
+  xMin = Math.max(0, Math.min(block.boardSize - 1 - width, xMin));
+  yMin = Math.max(0, Math.min(block.boardSize - 1 - height, yMin));
+  block.viewWindow = normalizeViewWindow(block.boardSize, {
+    xMin,
+    yMin,
+    xMax: xMin + width,
+    yMax: yMin + height,
+  });
+}
+
+function adjustViewWindow(block, delta) {
+  const current = normalizeViewWindow(block.boardSize, block.viewWindow);
+  const next = {
+    xMin: current.xMin - delta,
+    yMin: current.yMin - delta,
+    xMax: current.xMax + delta,
+    yMax: current.yMax + delta,
+  };
+  block.viewWindow = normalizeViewWindow(block.boardSize, next);
+}
+
+function placeStoneInInitialPosition(block, coordinate, tool) {
+  const key = getPointKey(coordinate);
+  const nextStones = (block.initialPosition || []).filter((stone) => getPointKey(stone) !== key);
+  if (tool === "erase") {
+    block.initialPosition = nextStones;
+    return;
+  }
+
+  const color = tool === "white" ? "white" : "black";
+  nextStones.push({ color, x: coordinate.x, y: coordinate.y });
+  block.initialPosition = nextStones;
+}
+
+function placeMarkerOnBlock(block, coordinate, editorUiState) {
+  const key = getPointKey(coordinate);
+  const nextMarkers = (block.markers || []).filter((marker) => getPointKey(marker) !== key);
+  if (editorUiState.tool === "erase") {
+    block.markers = nextMarkers;
+    return;
+  }
+
+  nextMarkers.push({
+    x: coordinate.x,
+    y: coordinate.y,
+    label: (editorUiState.markerLabel || "A").slice(0, 3),
+    shape: editorUiState.markerShape || "circle",
+  });
+  block.markers = nextMarkers;
+}
+
+function appendStoneToVariation(block, editorUiState, coordinate) {
+  const variation = block.variations[editorUiState.selectedVariationIndex] || block.variations[0];
+  if (!variation) {
+    return;
+  }
+
+  updateSequenceMoves(block.initialPosition, variation.moves, coordinate, editorUiState.tool);
+}
+
+function appendStoneToSuccessSequence(block, coordinate) {
+  updateSequenceMoves(block.initialPosition, block.successSequence, coordinate, "auto");
+}
+
+function appendStoneToFailureSequence(block, editorUiState, coordinate) {
+  const failureSequence = block.failureSequences[editorUiState.selectedFailureIndex] || block.failureSequences[0];
+  if (!failureSequence) {
+    return;
+  }
+
+  updateSequenceMoves(block.initialPosition, failureSequence.moves, coordinate, "auto");
+}
+
+function updateSequenceMoves(initialPosition, sequence, coordinate, tool) {
+  const occupied = buildStoneMap(initialPosition, sequence);
+  const key = getPointKey(coordinate);
+
+  const existingIndex = sequence.findIndex((move) => getPointKey(move) === key);
+  if (tool === "erase") {
+    if (existingIndex >= 0) {
+      sequence.splice(existingIndex, 1);
+    }
+    return;
+  }
+
+  if (occupied.has(key)) {
+    throw new Error("That point is already occupied in this line.");
+  }
+
+  const color = tool === "white" || tool === "black" ? tool : getNextSequenceColor(initialPosition, sequence);
+  sequence.push({ color, x: coordinate.x, y: coordinate.y });
+}
+
+function getNextSequenceColor(initialPosition, sequence) {
+  const totalPlaced = (initialPosition || []).length + (sequence || []).length;
+  return totalPlaced % 2 === 0 ? "black" : "white";
+}
+
+function setWeiqiEditorLayer(blockIndex, layer) {
+  const post = getCurrentPost();
+  const block = normalizeWeiqiBlock(post?.contentBlocks?.[blockIndex]);
+  if (!block) {
+    return;
+  }
+  getWeiqiEditorState(blockIndex, block).layer = layer;
+  renderContentBlockFields(post);
+}
+
+function setWeiqiEditorOpen(blockIndex, isOpen) {
+  const post = getCurrentPost();
+  const block = normalizeWeiqiBlock(post?.contentBlocks?.[blockIndex]);
+  if (!block) {
+    return;
+  }
+  getWeiqiEditorState(blockIndex, block).isOpen = isOpen;
+  renderContentBlockFields(post);
+}
+
+function setWeiqiEditorTool(blockIndex, tool) {
+  const post = getCurrentPost();
+  const block = normalizeWeiqiBlock(post?.contentBlocks?.[blockIndex]);
+  if (!block) {
+    return;
+  }
+  getWeiqiEditorState(blockIndex, block).tool = tool;
+  renderContentBlockFields(post);
+}
+
+function updateWeiqiEditorMeta(blockIndex, key, value) {
+  const post = getCurrentPost();
+  const block = normalizeWeiqiBlock(post?.contentBlocks?.[blockIndex]);
+  if (!block) {
+    return;
+  }
+  getWeiqiEditorState(blockIndex, block)[key] = value;
+}
+
+function addAnimatedVariation(blockIndex) {
+  withEditableWeiqiBlock(blockIndex, (block, editorUiState) => {
+    editorUiState.isOpen = true;
+    const nextIndex = (block.variations?.length || 0) + 1;
+    block.variations.push({
+      id: `variation-${Date.now()}`,
+      label: `Variation ${nextIndex}`,
+      moves: [],
+    });
+    editorUiState.selectedVariationIndex = block.variations.length - 1;
+    editorUiState.layer = "variation";
+  }, "Added animation version");
+}
+
+function selectAnimatedVariation(blockIndex, variationIndex) {
+  const post = getCurrentPost();
+  const block = normalizeWeiqiBlock(post?.contentBlocks?.[blockIndex]);
+  if (!block) {
+    return;
+  }
+  getWeiqiEditorState(blockIndex, block).selectedVariationIndex = variationIndex;
+  renderContentBlockFields(post);
+}
+
+function renameAnimatedVariation(blockIndex, label) {
+  withEditableWeiqiBlock(blockIndex, (block, editorUiState) => {
+    const variation = block.variations[editorUiState.selectedVariationIndex] || block.variations[0];
+    if (variation) {
+      variation.label = label.trim() || variation.label;
+    }
+  });
+}
+
+function deleteAnimatedVariation(blockIndex) {
+  withEditableWeiqiBlock(blockIndex, (block, editorUiState) => {
+    if (block.variations.length <= 1) {
+      return;
+    }
+    block.variations.splice(editorUiState.selectedVariationIndex, 1);
+    editorUiState.selectedVariationIndex = Math.max(0, editorUiState.selectedVariationIndex - 1);
+  }, "Deleted animation version");
+}
+
+function removeLastVariationMove(blockIndex) {
+  withEditableWeiqiBlock(blockIndex, (block, editorUiState) => {
+    const variation = block.variations[editorUiState.selectedVariationIndex] || block.variations[0];
+    variation?.moves?.pop();
+  });
+}
+
+function clearVariation(blockIndex) {
+  withEditableWeiqiBlock(blockIndex, (block, editorUiState) => {
+    const variation = block.variations[editorUiState.selectedVariationIndex] || block.variations[0];
+    if (variation) {
+      variation.moves = [];
+    }
+  });
+}
+
+function addFailureSequence(blockIndex) {
+  withEditableWeiqiBlock(blockIndex, (block, editorUiState) => {
+    editorUiState.isOpen = true;
+    const nextIndex = (block.failureSequences?.length || 0) + 1;
+    block.failureSequences.push({
+      id: `failure-${Date.now()}`,
+      label: `Failure ${nextIndex}`,
+      moves: [],
+      message: "",
+    });
+    editorUiState.selectedFailureIndex = block.failureSequences.length - 1;
+    editorUiState.layer = "failure";
+  }, "Added failure line");
+}
+
+function selectFailureSequence(blockIndex, failureIndex) {
+  const post = getCurrentPost();
+  const block = normalizeWeiqiBlock(post?.contentBlocks?.[blockIndex]);
+  if (!block) {
+    return;
+  }
+  getWeiqiEditorState(blockIndex, block).selectedFailureIndex = failureIndex;
+  renderContentBlockFields(post);
+}
+
+function renameFailureSequence(blockIndex, label) {
+  withEditableWeiqiBlock(blockIndex, (block, editorUiState) => {
+    const sequence = block.failureSequences[editorUiState.selectedFailureIndex] || block.failureSequences[0];
+    if (sequence) {
+      sequence.label = label.trim() || sequence.label;
+    }
+  });
+}
+
+function editFailureMessage(blockIndex, message) {
+  withEditableWeiqiBlock(blockIndex, (block, editorUiState) => {
+    const sequence = block.failureSequences[editorUiState.selectedFailureIndex] || block.failureSequences[0];
+    if (sequence) {
+      sequence.message = message;
+    }
+  });
+}
+
+function deleteFailureSequence(blockIndex) {
+  withEditableWeiqiBlock(blockIndex, (block, editorUiState) => {
+    if (block.failureSequences.length <= 1) {
+      return;
+    }
+    block.failureSequences.splice(editorUiState.selectedFailureIndex, 1);
+    editorUiState.selectedFailureIndex = Math.max(0, editorUiState.selectedFailureIndex - 1);
+  }, "Deleted failure line");
+}
+
+function removeLastSuccessMove(blockIndex) {
+  withEditableWeiqiBlock(blockIndex, (block) => {
+    block.successSequence.pop();
+  });
+}
+
+function clearSuccessSequence(blockIndex) {
+  withEditableWeiqiBlock(blockIndex, (block) => {
+    block.successSequence = [];
+  });
+}
+
+function removeLastFailureMove(blockIndex) {
+  withEditableWeiqiBlock(blockIndex, (block, editorUiState) => {
+    const sequence = block.failureSequences[editorUiState.selectedFailureIndex] || block.failureSequences[0];
+    sequence?.moves?.pop();
+  });
+}
+
+function clearFailureSequence(blockIndex) {
+  withEditableWeiqiBlock(blockIndex, (block, editorUiState) => {
+    const sequence = block.failureSequences[editorUiState.selectedFailureIndex] || block.failureSequences[0];
+    if (sequence) {
+      sequence.moves = [];
+    }
+  });
+}
+
+function zoomWeiqiView(blockIndex, direction) {
+  withEditableWeiqiBlock(blockIndex, (block) => {
+    if (direction === "reset") {
+      block.viewWindow = getDefaultViewWindow(block.boardSize);
+      return;
+    }
+    adjustViewWindow(block, direction === "in" ? 1 : -1);
+  });
+}
+
+function beginWeiqiViewportDrag(blockIndex, event) {
+  editorState.weiqiViewportDrag = { blockIndex };
+  handleWeiqiBoardPlacement(blockIndex, "overview", event);
+}
+
+function continueWeiqiViewportDrag(event) {
+  if (!editorState.weiqiViewportDrag) {
+    return;
+  }
+  handleWeiqiBoardPlacement(editorState.weiqiViewportDrag.blockIndex, "overview", event);
+}
+
+function endWeiqiViewportDrag() {
+  editorState.weiqiViewportDrag = null;
 }
 
 function syncSiteFields() {
@@ -1181,41 +1920,81 @@ function validateBeforeSave() {
         return;
       }
 
-      assertBoardSize(Number(block.boardSize));
-      if ((block.coordinateSystem || "zero-based") !== "zero-based") {
+      const normalizedBlock = normalizeWeiqiBlock(block);
+      assertBoardSize(Number(normalizedBlock.boardSize));
+      if ((normalizedBlock.coordinateSystem || "zero-based") !== "zero-based") {
         throw new Error(`Post ${index + 1} block ${blockIndex + 1} must use zero-based coordinates.`);
       }
 
-      ["initialPosition", "moves", "solution"].forEach((key) => {
-        if (!Array.isArray(block[key])) {
+      ["initialPosition"].forEach((key) => {
+        if (!Array.isArray(normalizedBlock[key])) {
           return;
         }
 
-        block[key].forEach((stone, stoneIndex) => {
+        normalizedBlock[key].forEach((stone, stoneIndex) => {
           if (!WEIQI_STONE_COLORS.has(stone.color)) {
             throw new Error(`Post ${index + 1} block ${blockIndex + 1} ${key} item ${stoneIndex + 1} has an invalid color.`);
           }
-          assertCoordinateInBounds(stone.x, stone.y, Number(block.boardSize), `${key} item ${stoneIndex + 1}`);
+          assertCoordinateInBounds(stone.x, stone.y, Number(normalizedBlock.boardSize), `${key} item ${stoneIndex + 1}`);
         });
       });
 
-      validateUniqueStonePoints(block.initialPosition || [], "Initial position");
-      if (Array.isArray(block.moves)) {
-        validateStoneProgression(block.initialPosition || [], block.moves, "Moves");
-      }
-      if (Array.isArray(block.solution)) {
-        validateStoneProgression(block.initialPosition || [], block.solution, "Solution");
-      }
+      validateUniqueStonePoints(normalizedBlock.initialPosition || [], "Initial position");
+      normalizedBlock.variations.forEach((variation) => validateStoneProgression(normalizedBlock.initialPosition || [], variation.moves || [], variation.label));
+      validateStoneProgression(normalizedBlock.initialPosition || [], normalizedBlock.successSequence || [], "Success sequence");
+      normalizedBlock.failureSequences.forEach((sequence) => validateStoneProgression(normalizedBlock.initialPosition || [], sequence.moves || [], sequence.label));
 
-      (block.markers || []).forEach((marker, markerIndex) => {
-        assertCoordinateInBounds(marker.x, marker.y, Number(block.boardSize), `marker ${markerIndex + 1}`);
+      (normalizedBlock.markers || []).forEach((marker, markerIndex) => {
+        assertCoordinateInBounds(marker.x, marker.y, Number(normalizedBlock.boardSize), `marker ${markerIndex + 1}`);
         if (marker.shape && !WEIQI_MARKER_SHAPES.has(marker.shape)) {
           throw new Error(`Post ${index + 1} block ${blockIndex + 1} marker ${markerIndex + 1} has an invalid shape.`);
         }
       });
 
-      (block.failureStates || []).forEach((failure, failureIndex) => {
-        assertCoordinateInBounds(failure.x, failure.y, Number(block.boardSize), `failure state ${failureIndex + 1}`);
+      normalizedBlock.failureSequences.forEach((sequence, sequenceIndex) => {
+        if (sequence.message != null && typeof sequence.message !== "string") {
+          throw new Error(`Post ${index + 1} block ${blockIndex + 1} failure ${sequenceIndex + 1} needs a string message.`);
+        }
+      });
+
+      if (normalizedBlock.mode === "puzzle" && !(normalizedBlock.prompt || "").trim()) {
+        throw new Error(`Post ${index + 1} block ${blockIndex + 1} puzzle needs a prompt.`);
+      }
+
+      if (normalizedBlock.explanation != null && typeof normalizedBlock.explanation !== "string") {
+        throw new Error(`Post ${index + 1} block ${blockIndex + 1} explanation must be a string.`);
+      }
+
+      if (normalizedBlock.viewWindow) {
+        ["xMin", "yMin", "xMax", "yMax"].forEach((key) => {
+          if (!Number.isInteger(normalizedBlock.viewWindow[key])) {
+            throw new Error(`Post ${index + 1} block ${blockIndex + 1} view window is invalid.`);
+          }
+        });
+      }
+
+      normalizeViewWindow(normalizedBlock.boardSize, normalizedBlock.viewWindow);
+      normalizedBlock.failureSequences.forEach((sequence) => {
+        (sequence.moves || []).forEach((stone, stoneIndex) => {
+          if (!WEIQI_STONE_COLORS.has(stone.color)) {
+            throw new Error(`Post ${index + 1} block ${blockIndex + 1} failure move ${stoneIndex + 1} has an invalid color.`);
+          }
+          assertCoordinateInBounds(stone.x, stone.y, Number(normalizedBlock.boardSize), `failure move ${stoneIndex + 1}`);
+        });
+      });
+      normalizedBlock.successSequence.forEach((stone, stoneIndex) => {
+        if (!WEIQI_STONE_COLORS.has(stone.color)) {
+          throw new Error(`Post ${index + 1} block ${blockIndex + 1} success move ${stoneIndex + 1} has an invalid color.`);
+        }
+        assertCoordinateInBounds(stone.x, stone.y, Number(normalizedBlock.boardSize), `success move ${stoneIndex + 1}`);
+      });
+      normalizedBlock.variations.forEach((variation) => {
+        (variation.moves || []).forEach((stone, stoneIndex) => {
+          if (!WEIQI_STONE_COLORS.has(stone.color)) {
+            throw new Error(`Post ${index + 1} block ${blockIndex + 1} variation move ${stoneIndex + 1} has an invalid color.`);
+          }
+          assertCoordinateInBounds(stone.x, stone.y, Number(normalizedBlock.boardSize), `variation move ${stoneIndex + 1}`);
+        });
       });
     });
   });

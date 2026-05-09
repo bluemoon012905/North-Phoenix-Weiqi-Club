@@ -961,6 +961,13 @@ textarea {
   fill: rgba(49, 31, 11, 0.9);
 }
 
+.weiqi-viewport-outline {
+  fill: rgba(33, 93, 143, 0.14);
+  stroke: rgba(16, 26, 40, 0.76);
+  stroke-width: 4;
+  stroke-dasharray: 12 8;
+}
+
 .weiqi-stone {
   stroke-width: 2;
 }
@@ -1013,6 +1020,17 @@ textarea {
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 14px;
+}
+
+.weiqi-variation-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.weiqi-variation-tabs .is-active {
+  background: rgba(31, 36, 48, 0.12);
 }
 
 .weiqi-status {

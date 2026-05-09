@@ -12,5 +12,52 @@
     "Puzzle"
   ],
   "bodyFormat": "html",
-  "body": "<h2>Start here</h2><p>Write the first draft of this post.</p>"
+  "body": "<h2>Start here</h2><p>Write the first draft of this post.</p>",
+  "contentBlocks": [
+    {
+      "type": "weiqi",
+      "mode": "static",
+      "boardSize": 19,
+      "coordinateSystem": "zero-based",
+      "caption": "New Weiqi block",
+      "initialPosition": [
+        {
+          "color": "black",
+          "x": 14,
+          "y": 3
+        },
+        {
+          "color": "black",
+          "x": 14,
+          "y": 5
+        },
+        {
+          "color": "black",
+          "x": 13,
+          "y": 6
+        },
+        {
+          "color": "black",
+          "x": 10,
+          "y": 6
+        }
+      ],
+      "markers": [],
+      "viewWindow": {
+        "xMin": 0,
+        "yMin": 0,
+        "xMax": 18,
+        "yMax": 18
+      },
+      "variations": [
+        {
+          "id": "variation-1",
+          "label": "Main line",
+          "moves": []
+        }
+      ],
+      "successSequence": [],
+      "failureSequences": []
+    }
+  ]
 }

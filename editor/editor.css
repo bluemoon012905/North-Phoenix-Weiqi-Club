@@ -592,6 +592,13 @@ button.danger:hover {
   fill: rgba(49, 31, 11, 0.9);
 }
 
+.weiqi-viewport-outline {
+  fill: rgba(33, 93, 143, 0.14);
+  stroke: rgba(16, 26, 40, 0.76);
+  stroke-width: 4;
+  stroke-dasharray: 12 8;
+}
+
 .weiqi-stone {
   stroke-width: 2;
 }
@@ -702,6 +709,147 @@ button.danger:hover {
 
 .content-block-card {
   padding: 20px;
+}
+
+.content-block-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.weiqi-editor-collapsed .post-structured-content {
+  margin-top: 0;
+}
+
+.weiqi-editor-collapsed .structured-block {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.weiqi-editor-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) 320px;
+  gap: 18px;
+  margin-top: 20px;
+}
+
+.weiqi-editor-main,
+.weiqi-editor-sidebar,
+.weiqi-sequence-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.weiqi-editor-toolbar,
+.weiqi-editor-tools,
+.weiqi-overview-actions,
+.weiqi-sequence-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.weiqi-editor-toolbar {
+  justify-content: space-between;
+}
+
+.weiqi-editor-board-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 200px;
+  gap: 16px;
+  align-items: start;
+}
+
+.weiqi-editor-board-panel,
+.weiqi-editor-overview-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.weiqi-editor-board-shell {
+  max-width: 100%;
+}
+
+.weiqi-editor-board-shell .weiqi-board {
+  width: 100%;
+  max-width: 860px;
+}
+
+.weiqi-editor-overview-shell {
+  max-width: 200px;
+}
+
+.weiqi-editor-overview-shell .weiqi-board {
+  width: 100%;
+  max-width: 200px;
+}
+
+.weiqi-editor-hint {
+  margin: 0;
+  color: var(--muted);
+}
+
+.weiqi-marker-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.weiqi-sequence-list {
+  display: grid;
+  gap: 8px;
+}
+
+.weiqi-sequence-chip {
+  width: 100%;
+  justify-content: space-between;
+  text-align: left;
+}
+
+.weiqi-sequence-chip span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.weiqi-sequence-chip.is-active,
+.weiqi-variation-tabs .is-active,
+.weiqi-editor-tools .is-active {
+  background: rgba(33, 93, 143, 0.16);
+  border-color: rgba(16, 26, 40, 0.52);
+}
+
+.weiqi-move-list {
+  margin: 0;
+  padding-left: 22px;
+  color: var(--muted);
+}
+
+.weiqi-move-empty {
+  list-style: none;
+  margin-left: -22px;
+}
+
+.weiqi-variation-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 1180px) {
+  .weiqi-editor-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .weiqi-editor-board-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .weiqi-editor-overview-shell,
+  .weiqi-editor-overview-shell .weiqi-board {
+    max-width: 240px;
+  }
 }
 
 .workspace-kicker {
