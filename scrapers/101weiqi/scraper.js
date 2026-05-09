@@ -2,9 +2,10 @@
 
 const fs = require("fs");
 const path = require("path");
+const readline = require("readline");
 const { chromium } = require("playwright");
 
-const rootDir = path.resolve(__dirname, "..");
+const rootDir = path.resolve(__dirname, "..", "..");
 
 main().catch((error) => {
   console.error(error instanceof Error ? error.message : String(error));
@@ -24,26 +25,32 @@ async function main() {
   const password = process.env.WEIQI_PASSWORD;
   const baseUrl = process.env.WEIQI_BASE_URL || "https://www.101weiqi.com";
   const loginPath = process.env.WEIQI_LOGIN_PATH || "/login";
+  const profileDir = path.resolve(rootDir, args.flags["profile-dir"] || "tmp/101weiqi/browser-profile");
+  const manualLogin = hasFlag(args.flags, "manual-login");
 
-  if (!username || !password) {
+  if (!manualLogin && (!username || !password)) {
     throw new Error("Missing WEIQI_USERNAME or WEIQI_PASSWORD in .env.");
   }
 
   const slug = makeSlugFromUrl(targetUrl);
-  const outputPath = path.resolve(rootDir, args.flags.out || `tmp/101weiqi/${slug}.json`);
-  const debugDir = path.resolve(rootDir, args.flags["debug-dir"] || `tmp/101weiqi/${slug}`);
+  const runDir = path.resolve(rootDir, args.flags.out || `tmp/101weiqi/${slug}`);
+  const dataDir = path.join(runDir, "data");
+  const rawDir = path.join(runDir, "raw");
+  const renderDir = path.join(runDir, "render");
+  const artifactsDir = path.join(runDir, "artifacts");
+  const outputPath = path.join(dataDir, "scrape.json");
 
-  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-  fs.mkdirSync(debugDir, { recursive: true });
-
-  const browser = await chromium.launch({
-    headless: !hasFlag(args.flags, "headful"),
+  [runDir, dataDir, rawDir, renderDir, artifactsDir].forEach((dirPath) => {
+    fs.mkdirSync(dirPath, { recursive: true });
   });
 
-  const context = await browser.newContext({
+  fs.mkdirSync(profileDir, { recursive: true });
+
+  const context = await chromium.launchPersistentContext(profileDir, {
+    headless: !hasFlag(args.flags, "headful"),
     viewport: { width: 1440, height: 1400 },
   });
-  const page = await context.newPage();
+  const page = context.pages()[0] || (await context.newPage());
   const networkCaptures = [];
 
   page.on("response", async (response) => {
@@ -78,6 +85,7 @@ async function main() {
       loginPath,
       username,
       password,
+      manualLogin,
     });
 
     await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
@@ -87,12 +95,12 @@ async function main() {
     const rawHtml = await page.content();
     const scraped = await extractPageData(page, targetUrl);
 
-    fs.writeFileSync(path.join(debugDir, "page.html"), rawHtml);
+    fs.writeFileSync(path.join(rawDir, "page.html"), rawHtml);
     await page.screenshot({
-      path: path.join(debugDir, "page.png"),
+      path: path.join(artifactsDir, "page.png"),
       fullPage: true,
     });
-    fs.writeFileSync(path.join(debugDir, "network.json"), `${JSON.stringify(networkCaptures, null, 2)}\n`);
+    fs.writeFileSync(path.join(rawDir, "network.json"), `${JSON.stringify(networkCaptures, null, 2)}\n`);
 
     const payload = {
       sourceUrl: targetUrl,
@@ -104,22 +112,34 @@ async function main() {
       board: scraped.board,
       candidates: scraped.candidates,
       debug: {
-        htmlPath: path.relative(rootDir, path.join(debugDir, "page.html")),
-        screenshotPath: path.relative(rootDir, path.join(debugDir, "page.png")),
-        networkPath: path.relative(rootDir, path.join(debugDir, "network.json")),
+        htmlPath: path.relative(rootDir, path.join(rawDir, "page.html")),
+        screenshotPath: path.relative(rootDir, path.join(artifactsDir, "page.png")),
+        networkPath: path.relative(rootDir, path.join(rawDir, "network.json")),
       },
     };
 
     fs.writeFileSync(outputPath, `${JSON.stringify(payload, null, 2)}\n`);
-    console.log(`Saved ${path.relative(rootDir, outputPath)}`);
+    fs.writeFileSync(path.join(renderDir, "index.html"), buildRenderPage(payload));
+
+    console.log(`Saved ${path.relative(rootDir, runDir)}`);
   } finally {
     await context.close();
-    await browser.close();
   }
 }
 
 async function login(page, options) {
   const loginUrl = new URL(options.loginPath, options.baseUrl).toString();
+
+  if (options.manualLogin) {
+    await page.goto(loginUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
+    console.log("");
+    console.log("Manual login required.");
+    console.log(`1. A browser window opened to ${loginUrl}`);
+    console.log("2. Log into 101weiqi in that window.");
+    console.log("3. After you can access the target page in that same browser, return here and press Enter.");
+    await waitForEnter();
+    return;
+  }
 
   await page.goto(options.baseUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
   await page.evaluate(() => {
@@ -303,4 +323,157 @@ function truncate(value, limit) {
 
 function isInterestingResponse(url) {
   return /101weiqi\.com/.test(url) && /(book|problem|question|task|qipu|play|api|sgf|login)/i.test(url);
+}
+
+function waitForEnter() {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise((resolve) => {
+    rl.question("", () => {
+      rl.close();
+      resolve();
+    });
+  });
+}
+
+function buildRenderPage(payload) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escapeHtml(payload.title || "101weiqi Capture")}</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f0e8;
+      --ink: #1d1b19;
+      --panel: #fffaf2;
+      --line: #d8c7a6;
+      --accent: #8a4b08;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(181, 133, 74, 0.16), transparent 32%),
+        linear-gradient(180deg, #efe6d5 0%, var(--bg) 100%);
+    }
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 32px 20px 48px;
+    }
+    h1, h2 { margin: 0 0 12px; }
+    .grid {
+      display: grid;
+      gap: 20px;
+      grid-template-columns: 1.1fr 0.9fr;
+    }
+    .panel {
+      background: color-mix(in srgb, var(--panel) 92%, white 8%);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 12px 40px rgba(54, 35, 10, 0.08);
+    }
+    .eyebrow {
+      display: inline-block;
+      margin-bottom: 10px;
+      color: var(--accent);
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    iframe, img {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: white;
+    }
+    iframe {
+      min-height: 760px;
+    }
+    img {
+      display: block;
+      height: auto;
+    }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 12px;
+      line-height: 1.5;
+      margin: 0;
+      background: #fcf7ef;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      max-height: 720px;
+      overflow: auto;
+    }
+    .meta {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .meta div {
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: #fcf7ef;
+      border: 1px solid var(--line);
+    }
+    a { color: var(--accent); }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+      iframe { min-height: 520px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="panel" style="margin-bottom: 20px;">
+      <span class="eyebrow">101weiqi Capture</span>
+      <h1>${escapeHtml(payload.title || "Untitled")}</h1>
+      <div class="meta">
+        <div><strong>Source:</strong> <a href="${escapeHtml(payload.sourceUrl)}">${escapeHtml(payload.sourceUrl)}</a></div>
+        <div><strong>Board found:</strong> ${payload.board && payload.board.found ? "yes" : "no"}</div>
+        <div><strong>Captured:</strong> ${escapeHtml(payload.scrapedAt || "")}</div>
+      </div>
+    </div>
+    <div class="grid">
+      <section class="panel">
+        <span class="eyebrow">Rendered Page</span>
+        <iframe src="../raw/page.html" title="Captured page"></iframe>
+      </section>
+      <section class="panel">
+        <span class="eyebrow">Screenshot</span>
+        <img src="../artifacts/page.png" alt="Captured page screenshot">
+      </section>
+      <section class="panel">
+        <span class="eyebrow">Scrape JSON</span>
+        <pre>${escapeHtml(JSON.stringify(payload, null, 2))}</pre>
+      </section>
+      <section class="panel">
+        <span class="eyebrow">Board Snippet</span>
+        <pre>${escapeHtml(payload.board && payload.board.htmlSnippet ? payload.board.htmlSnippet : "No board snippet captured.")}</pre>
+      </section>
+    </div>
+  </main>
+</body>
+</html>
+`;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
