@@ -1,7 +1,7 @@
 # North Phoenix Weiqi Club
 
 Small static site plus a local-only content editor.
-https://orthPhoenixWeiqi.com
+https://NorthPhoenixWeiqi.com
 
 ## Overview
 
