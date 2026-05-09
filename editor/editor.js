@@ -10,6 +10,11 @@ const {
   escapeHtml,
   escapeAttribute,
 } = window.BlueshellEditorHelpers;
+const { renderStructuredContentBlocks, init: initWeiqiContent } = window.BlueshellWeiqi;
+
+const WEIQI_BOARD_SIZES = [9, 13, 19];
+const WEIQI_STONE_COLORS = new Set(["black", "white"]);
+const WEIQI_MARKER_SHAPES = new Set(["", "circle", "square", "triangle", "cross"]);
 
 const editorState = {
   content: null,
@@ -108,6 +113,8 @@ const fields = {
   postCoverImage: document.getElementById("post-cover-image"),
   uploadCoverImageButton: document.getElementById("upload-cover-image-button"),
   coverImageUploadInput: document.getElementById("cover-image-upload-input"),
+  addWeiqiBlockButton: document.getElementById("add-weiqi-block-button"),
+  contentBlockFields: document.getElementById("content-block-fields"),
   postBodyEditor: document.getElementById("post-body-editor"),
   toolbar: document.querySelector(".toolbar"),
   fontFamilySelect: document.getElementById("font-family-select"),
