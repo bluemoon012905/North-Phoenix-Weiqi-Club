@@ -1,6 +1,7 @@
 # North Phoenix Weiqi Club
 
 Small static site plus a local-only content editor.
+NorthPhoenixWeiqiClub.com
 
 ## Overview
 
