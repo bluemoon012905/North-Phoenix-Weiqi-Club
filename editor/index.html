@@ -199,6 +199,19 @@
                 <input id="cover-image-upload-input" type="file" accept="image/*" class="visually-hidden" />
               </div>
             </div>
+            <div class="structured-editor-shell">
+              <div class="rich-editor-head">
+                <div>
+                  <p class="workspace-kicker">Structured content</p>
+                  <h3>Weiqi blocks</h3>
+                </div>
+                <p class="workspace-copy">Add typed board content after the rich body. Coordinates are stored zero-based.</p>
+              </div>
+              <div class="structured-editor-actions">
+                <button id="add-weiqi-block-button" type="button" class="secondary-ink">Add Weiqi block</button>
+              </div>
+              <div id="content-block-fields" class="content-block-fields"></div>
+            </div>
             <div class="rich-editor-shell">
               <div class="rich-editor-head">
                 <div>
@@ -332,6 +345,7 @@
       </section>
     </div>
     <script src="editor-helpers.js" defer></script>
+    <script src="../assets/weiqi-content.js" defer></script>
     <script src="editor.js" defer></script>
     <script src="editor-events.js" defer></script>
   </body>
