@@ -11,6 +11,7 @@ const {
   escapeAttribute,
 } = window.BlueshellEditorHelpers;
 const {
+  expandInlineBlocks,
   renderStructuredContentBlocks,
   init: initWeiqiContent,
   normalizeWeiqiBlock,
@@ -43,7 +44,6 @@ const editorState = {
   hasUnsavedChanges: false,
   saveInFlight: false,
   weiqiEditors: {},
-  contentBlockStackIndexByPost: {},
   contentBlockDrag: null,
   weiqiViewportDrag: null,
 };
@@ -142,6 +142,8 @@ const fields = {
   highlightColorInput: document.getElementById("highlight-color-input"),
   insertButtonLinkButton: document.getElementById("insert-button-link-button"),
   insertCitationLinkButton: document.getElementById("insert-citation-link-button"),
+  insertInlineWeiqiSelect: document.getElementById("insert-inline-weiqi-select"),
+  insertInlineWeiqiButton: document.getElementById("insert-inline-weiqi-button"),
   buttonBuilderModal: document.getElementById("button-builder-modal"),
   buttonBuilderBackdrop: document.getElementById("button-builder-backdrop"),
   closeButtonBuilderButton: document.getElementById("close-button-builder-button"),
@@ -329,6 +331,7 @@ function getDefaultWeiqiBlock(mode = "static") {
         : [],
     playerSide: mode === "puzzle" ? "both" : undefined,
     prompt: mode === "puzzle" ? "Black to play. Find the best move." : "",
+    stackGroup: "",
     branches:
       mode === "puzzle"
         ? [
@@ -348,31 +351,58 @@ function getDefaultWeiqiBlock(mode = "static") {
 
 function renderContentBlockFields(post) {
   const blocks = Array.isArray(post?.contentBlocks) ? post.contentBlocks : [];
+  updateInlineWeiqiSelect(blocks);
+
   if (!blocks.length) {
     fields.contentBlockFields.innerHTML = `<p class="empty-state">No structured content blocks yet. Add a Weiqi block to create a board diagram, animation, or puzzle.</p>`;
     return;
   }
 
-  const activeIndex = getContentBlockStackIndex(post, blocks.length);
-  fields.contentBlockFields.innerHTML = `
-    <div class="content-block-stack-shell">
-      <div class="content-block-stack-controls">
-        <button type="button" class="secondary-ink" data-action="select-prev-block" ${blocks.length <= 1 ? "disabled" : ""} aria-label="Previous Weiqi block">←</button>
-        <p class="content-block-stack-status">Block ${activeIndex + 1} of ${blocks.length}</p>
-        <button type="button" class="secondary-ink" data-action="select-next-block" ${blocks.length <= 1 ? "disabled" : ""} aria-label="Next Weiqi block">→</button>
-      </div>
-      <div class="content-block-stack">
-        ${blocks.map((block, index) => renderContentBlockCard(block, index, activeIndex)).join("")}
-      </div>
-    </div>
-  `;
+  fields.contentBlockFields.innerHTML = blocks.map((block, index) => renderContentBlockCard(block, index)).join("");
   initWeiqiContent(fields.contentBlockFields);
 }
 
-function renderContentBlockCard(block, index, activeIndex) {
+function updateInlineWeiqiSelect(blocks) {
+  if (!fields.insertInlineWeiqiSelect) {
+    return;
+  }
+
+  if (!blocks.length) {
+    fields.insertInlineWeiqiSelect.innerHTML = `<option value="">No blocks yet</option>`;
+    fields.insertInlineWeiqiButton.disabled = true;
+    return;
+  }
+
+  fields.insertInlineWeiqiSelect.innerHTML = blocks
+    .map((block, index) => {
+      const label = block.caption ? `#${index + 1}: ${escapeHtml(block.caption)}` : `Block #${index + 1}`;
+      return `<option value="${index}">${label}</option>`;
+    })
+    .join("");
+  fields.insertInlineWeiqiButton.disabled = false;
+}
+
+function insertWeiqiBlockInline() {
+  const index = parseInt(fields.insertInlineWeiqiSelect?.value, 10);
+  if (isNaN(index)) {
+    return;
+  }
+
+  const post = getCurrentPost();
+  if (!post || !Array.isArray(post.contentBlocks) || index < 0 || index >= post.contentBlocks.length) {
+    return;
+  }
+
+  const block = post.contentBlocks[index];
+  const caption = block.caption ? escapeHtml(block.caption) : `Block ${index + 1}`;
+  const html = `<div data-weiqi-block-index="${index}" contenteditable="false" class="weiqi-inline-placeholder"><span class="weiqi-inline-label">Weiqi: ${caption}</span></div><p></p>`;
+  applyFormatting("insertHTML", html);
+}
+
+function renderContentBlockCard(block, index) {
   if (block.type !== "weiqi") {
     return `
-      <section class="category-card content-block-card is-active" data-content-block-card-index="${index}">
+      <section class="category-card content-block-card" data-content-block-card-index="${index}">
         <div class="category-card-head">
           <div>
             <p class="workspace-kicker">Structured block</p>
@@ -395,16 +425,16 @@ function renderContentBlockCard(block, index, activeIndex) {
   const boardData = getEditorBoardData(normalizedBlock, editorUiState);
   const sequencePanel = renderWeiqiSequencePanel(normalizedBlock, editorUiState, index);
   const collapsedMarkup = renderStructuredContentBlocks([normalizedBlock]);
-  const stackState = getContentBlockStackVisualState(index, activeIndex);
-  const dragOffset = getContentBlockDragOffset(index);
+  const stackBadge = normalizedBlock.stackGroup
+    ? `<span class="panel-badge">Stack ${escapeHtml(getPublicStackLabel(normalizedBlock.stackGroup))}</span>`
+    : "";
 
   // The expanded editor uses the same renderer as the public site for the collapsed preview.
   return `
     <section
-      class="category-card content-block-card ${stackState.className} ${dragOffset ? "is-dragging" : ""}"
+      class="category-card content-block-card"
       data-weiqi-card
       data-content-block-card-index="${index}"
-      style="${dragOffset ? `--drag-x:${dragOffset.x}px; --drag-y:${dragOffset.y}px;` : ""}"
     >
       <div class="category-card-head">
         <div>
@@ -412,7 +442,9 @@ function renderContentBlockCard(block, index, activeIndex) {
           <h3>Weiqi ${escapeHtml(getWeiqiModeLabel(normalizedBlock.mode))}</h3>
         </div>
         <div class="content-block-head-actions">
-          <button type="button" class="secondary-ink content-block-drag-handle" data-action="drag-block" data-content-block-index="${index}" ${stackState.isActive ? "" : "tabindex=\"-1\""}>Drag</button>
+          <button type="button" class="secondary-ink content-block-drag-handle" draggable="true" data-drag-block-handle data-content-block-index="${index}">Move</button>
+          ${stackBadge}
+          <button type="button" class="secondary-ink" data-content-block-index="${index}" data-action="unstack-block" ${normalizedBlock.stackGroup ? "" : "disabled"}>Unstack</button>
           <button type="button" class="secondary-ink" data-content-block-index="${index}" data-action="${editorUiState.isOpen ? "close-weiqi-editor" : "open-weiqi-editor"}">${editorUiState.isOpen ? "Done" : "Edit"}</button>
           <button type="button" class="danger category-delete-button" data-content-block-index="${index}" data-action="delete-block">Delete</button>
         </div>
@@ -577,82 +609,18 @@ function renderContentBlockCard(block, index, activeIndex) {
       <textarea data-weiqi-key="markers" class="hidden">${escapeHtml(formatMarkerLines(normalizedBlock.markers))}</textarea>
       <textarea data-weiqi-key="animationChunks" class="hidden">${escapeHtml(JSON.stringify(normalizedBlock.animationChunks))}</textarea>
       <textarea data-weiqi-key="branches" class="hidden">${escapeHtml(JSON.stringify(normalizedBlock.branches))}</textarea>
+      <input data-weiqi-key="stackGroup" type="hidden" value="${escapeAttribute(normalizedBlock.stackGroup || "")}" />
       <textarea data-weiqi-key="viewWindow" class="hidden">${escapeHtml(JSON.stringify(normalizedBlock.viewWindow))}</textarea>
       </div>
     </section>
   `;
 }
 
-function getContentBlockStackIndex(post = getCurrentPost(), blockCount = null) {
-  const count = Number.isInteger(blockCount) ? blockCount : Array.isArray(post?.contentBlocks) ? post.contentBlocks.length : 0;
-  if (!post || count <= 0) {
-    return 0;
-  }
-
-  const key = post.id || "__unsaved__";
-  const savedIndex = editorState.contentBlockStackIndexByPost[key] ?? 0;
-  return Math.max(0, Math.min(savedIndex, count - 1));
-}
-
-function setContentBlockStackIndex(index, options = {}) {
-  const post = options.post || getCurrentPost();
-  if (!post) {
-    return;
-  }
-
-  const count = Array.isArray(post.contentBlocks) ? post.contentBlocks.length : 0;
-  if (!count) {
-    return;
-  }
-
-  const key = post.id || "__unsaved__";
-  editorState.contentBlockStackIndexByPost[key] = Math.max(0, Math.min(index, count - 1));
-  if (options.render !== false) {
-    renderContentBlockFields(post);
-  }
-}
-
-function getContentBlockStackVisualState(index, activeIndex) {
-  const delta = index - activeIndex;
-  if (delta === 0) {
-    return {
-      className: "is-active",
-      isActive: true,
-    };
-  }
-  if (delta === 1) {
-    return {
-      className: "is-next",
-      isActive: false,
-    };
-  }
-  if (delta === 2) {
-    return {
-      className: "is-next-2",
-      isActive: false,
-    };
-  }
-  if (delta === -1) {
-    return {
-      className: "is-prev",
-      isActive: false,
-    };
-  }
-  return {
-    className: "is-hidden-stack",
-    isActive: false,
-  };
-}
-
-function getContentBlockDragOffset(blockIndex) {
-  if (!editorState.contentBlockDrag || editorState.contentBlockDrag.blockIndex !== blockIndex) {
-    return null;
-  }
-
-  return {
-    x: editorState.contentBlockDrag.currentX - editorState.contentBlockDrag.startX,
-    y: editorState.contentBlockDrag.currentY - editorState.contentBlockDrag.startY,
-  };
+function getPublicStackLabel(stackGroup) {
+  return String(stackGroup || "")
+    .replace(/^stack-/, "")
+    .slice(0, 8)
+    .toUpperCase();
 }
 
 function getWeiqiEditorKey(blockIndex) {
@@ -1492,6 +1460,7 @@ function collectContentBlockFromCard(card, index) {
     boardSize,
     coordinateSystem,
     caption: card.querySelector('[data-weiqi-key="caption"]').value.trim(),
+    stackGroup: card.querySelector('[data-weiqi-key="stackGroup"]')?.value.trim() || "",
     initialPosition: parseStoneText(card.querySelector('[data-weiqi-key="initialPosition"]').value, boardSize, "Initial position"),
     markers: parseMarkerText(card.querySelector('[data-weiqi-key="markers"]').value, boardSize),
     viewWindow: JSON.parse(card.querySelector('[data-weiqi-key="viewWindow"]').value || "{}"),
@@ -1523,7 +1492,7 @@ function collectContentBlockFromCard(card, index) {
     block.explanation = card.querySelector('[data-weiqi-key="explanation"]').value.trim();
   }
 
-  return block;
+  return sanitizeWeiqiStackGroup(block);
 }
 
 function syncStructuredContentBlocks(options = {}) {
@@ -1538,6 +1507,7 @@ function syncStructuredContentBlocks(options = {}) {
   }
 
   post.contentBlocks = nextBlocks;
+  cleanupWeiqiStackGroups(post.contentBlocks);
   renderPostPreview(post);
   markDirty();
   return true;
@@ -1556,7 +1526,6 @@ function addWeiqiBlock(mode = "static") {
   post.contentBlocks = Array.isArray(post.contentBlocks) ? post.contentBlocks : [];
   post.contentBlocks.push(getDefaultWeiqiBlock(mode));
   getWeiqiEditorState(post.contentBlocks.length - 1, post.contentBlocks[post.contentBlocks.length - 1]).isOpen = true;
-  setContentBlockStackIndex(post.contentBlocks.length - 1, { post, render: false });
   renderContentBlockFields(post);
   renderPostPreview(post);
   markDirty();
@@ -1574,7 +1543,7 @@ function deleteContentBlock(blockIndex) {
   }
 
   post.contentBlocks.splice(blockIndex, 1);
-  setContentBlockStackIndex(Math.min(blockIndex, post.contentBlocks.length - 1), { post, render: false });
+  cleanupWeiqiStackGroups(post.contentBlocks);
   renderContentBlockFields(post);
   renderPostPreview(post);
   markDirty();
@@ -1617,6 +1586,10 @@ function updateHiddenWeiqiFields(blockIndex, block) {
   const branchesField = card.querySelector('[data-weiqi-key="branches"]');
   if (branchesField) {
     branchesField.value = JSON.stringify(block.branches || []);
+  }
+  const stackGroupField = card.querySelector('[data-weiqi-key="stackGroup"]');
+  if (stackGroupField) {
+    stackGroupField.value = block.stackGroup || "";
   }
   card.querySelector('[data-weiqi-key="viewWindow"]').value = serializeViewWindow(block.viewWindow);
 }
@@ -1891,71 +1864,100 @@ function setWeiqiEditorMarkerMode(blockIndex, markerMode) {
   renderContentBlockFields(post);
 }
 
-function selectAdjacentContentBlock(direction) {
-  const post = getCurrentPost();
-  if (!post || !Array.isArray(post.contentBlocks) || !post.contentBlocks.length) {
-    return;
-  }
-
-  const activeIndex = getContentBlockStackIndex(post);
-  const delta = direction === "prev" ? -1 : 1;
-  setContentBlockStackIndex(activeIndex + delta, { post });
-}
-
-function beginContentBlockDrag(blockIndex, event) {
-  const post = getCurrentPost();
-  if (!post || !Array.isArray(post.contentBlocks) || !post.contentBlocks[blockIndex]) {
-    return;
-  }
-
-  setContentBlockStackIndex(blockIndex, { post, render: false });
+function beginContentBlockDrag(blockIndex) {
+  clearContentBlockDropTarget();
   editorState.contentBlockDrag = {
-    blockIndex,
-    startX: event.clientX,
-    startY: event.clientY,
-    currentX: event.clientX,
-    currentY: event.clientY,
+    sourceIndex: blockIndex,
+    targetIndex: null,
   };
-  renderContentBlockFields(post);
+  const sourceCard = fields.contentBlockFields.querySelector(`.content-block-card[data-content-block-card-index="${blockIndex}"]`);
+  sourceCard?.classList.add("is-drag-source");
 }
 
-function continueContentBlockDrag(event) {
-  if (!editorState.contentBlockDrag) {
-    return;
-  }
+function setContentBlockDropTarget(targetIndex) {
+  editorState.contentBlockDrag = editorState.contentBlockDrag || { sourceIndex: null, targetIndex: null };
+  editorState.contentBlockDrag.targetIndex = targetIndex;
+  fields.contentBlockFields.querySelectorAll(".content-block-card").forEach((card) => {
+    const cardIndex = Number(card.dataset.contentBlockCardIndex);
+    card.classList.toggle("is-drop-target", cardIndex === targetIndex);
+    card.classList.toggle("is-drag-source", cardIndex === editorState.contentBlockDrag.sourceIndex);
+  });
+}
 
-  editorState.contentBlockDrag.currentX = event.clientX;
-  editorState.contentBlockDrag.currentY = event.clientY;
-  const post = getCurrentPost();
-  if (post) {
-    renderContentBlockFields(post);
+function clearContentBlockDropTarget() {
+  fields.contentBlockFields.querySelectorAll(".content-block-card").forEach((card) => {
+    card.classList.remove("is-drop-target", "is-drag-source");
+  });
+  if (editorState.contentBlockDrag) {
+    editorState.contentBlockDrag.targetIndex = null;
   }
 }
 
 function endContentBlockDrag() {
-  if (!editorState.contentBlockDrag) {
-    return;
-  }
-
-  const dragState = editorState.contentBlockDrag;
+  clearContentBlockDropTarget();
   editorState.contentBlockDrag = null;
-  const deltaX = dragState.currentX - dragState.startX;
-  const threshold = 120;
-
-  if (Math.abs(deltaX) < threshold) {
-    const post = getCurrentPost();
-    if (post) {
-      renderContentBlockFields(post);
-    }
-    return;
-  }
-
-  moveContentBlock(dragState.blockIndex, deltaX < 0 ? dragState.blockIndex - 1 : dragState.blockIndex + 1);
 }
 
 function moveContentBlock(fromIndex, toIndex) {
   const post = getCurrentPost();
   if (!post || !Array.isArray(post.contentBlocks)) {
+    return null;
+  }
+
+  if (!syncStructuredContentBlocks({ throwOnError: false })) {
+    return null;
+  }
+
+  const maxIndex = post.contentBlocks.length - 1;
+  const nextIndex = Math.max(0, Math.min(toIndex, maxIndex));
+  if (fromIndex === nextIndex || !post.contentBlocks[fromIndex]) {
+    renderContentBlockFields(post);
+    return {
+      movedIndex: fromIndex,
+      partnerIndex: fromIndex,
+    };
+  }
+
+  const [movedBlock] = post.contentBlocks.splice(fromIndex, 1);
+  post.contentBlocks.splice(nextIndex, 0, movedBlock);
+  cleanupWeiqiStackGroups(post.contentBlocks);
+  renderContentBlockFields(post);
+  renderPostPreview(post);
+  markDirty();
+  setStatus(`Moved Weiqi block to position ${nextIndex + 1}`);
+  return {
+    movedIndex: nextIndex,
+    partnerIndex: nextIndex > fromIndex ? nextIndex - 1 : nextIndex + 1,
+  };
+}
+
+function stackWeiqiBlocks(firstIndex, secondIndex) {
+  const post = getCurrentPost();
+  if (!post || !Array.isArray(post.contentBlocks)) {
+    return;
+  }
+
+  const firstBlock = normalizeWeiqiBlock(post.contentBlocks[firstIndex]);
+  const secondBlock = normalizeWeiqiBlock(post.contentBlocks[secondIndex]);
+  if (!firstBlock || !secondBlock || firstBlock.type !== "weiqi" || secondBlock.type !== "weiqi") {
+    return;
+  }
+
+  const nextStackGroup = firstBlock.stackGroup || secondBlock.stackGroup || `stack-${Date.now()}`;
+  firstBlock.stackGroup = nextStackGroup;
+  secondBlock.stackGroup = nextStackGroup;
+  post.contentBlocks[firstIndex] = sanitizeWeiqiStackGroup(firstBlock);
+  post.contentBlocks[secondIndex] = sanitizeWeiqiStackGroup(secondBlock);
+  cleanupWeiqiStackGroups(post.contentBlocks);
+  renderContentBlockFields(post);
+  renderPostPreview(post);
+  markDirty();
+  setStatus("Stacked the two Weiqi blocks for the public post view.");
+}
+
+function unstackWeiqiBlock(blockIndex) {
+  const post = getCurrentPost();
+  if (!post || !Array.isArray(post.contentBlocks) || !post.contentBlocks[blockIndex]) {
     return;
   }
 
@@ -1963,20 +1965,50 @@ function moveContentBlock(fromIndex, toIndex) {
     return;
   }
 
-  const maxIndex = post.contentBlocks.length - 1;
-  const nextIndex = Math.max(0, Math.min(toIndex, maxIndex));
-  if (fromIndex === nextIndex || !post.contentBlocks[fromIndex]) {
-    renderContentBlockFields(post);
+  const block = normalizeWeiqiBlock(post.contentBlocks[blockIndex]);
+  if (!block || block.type !== "weiqi" || !block.stackGroup) {
     return;
   }
 
-  const [movedBlock] = post.contentBlocks.splice(fromIndex, 1);
-  post.contentBlocks.splice(nextIndex, 0, movedBlock);
-  setContentBlockStackIndex(nextIndex, { post, render: false });
+  block.stackGroup = "";
+  post.contentBlocks[blockIndex] = sanitizeWeiqiStackGroup(block);
+  cleanupWeiqiStackGroups(post.contentBlocks);
   renderContentBlockFields(post);
   renderPostPreview(post);
   markDirty();
-  setStatus(`Moved Weiqi block to position ${nextIndex + 1}`);
+  setStatus("Removed this Weiqi block from its public stack.");
+}
+
+function sanitizeWeiqiStackGroup(block) {
+  if (!block || block.type !== "weiqi") {
+    return block;
+  }
+
+  return {
+    ...block,
+    stackGroup: typeof block.stackGroup === "string" ? block.stackGroup.trim() : "",
+  };
+}
+
+function cleanupWeiqiStackGroups(blocks = []) {
+  blocks.forEach((block, index) => {
+    if (block?.type !== "weiqi" || !block.stackGroup) {
+      return;
+    }
+
+    const previousBlock = blocks[index - 1];
+    const nextBlock = blocks[index + 1];
+    const hasAdjacentMatch =
+      (previousBlock?.type === "weiqi" && previousBlock.stackGroup === block.stackGroup) ||
+      (nextBlock?.type === "weiqi" && nextBlock.stackGroup === block.stackGroup);
+
+    if (!hasAdjacentMatch) {
+      blocks[index] = {
+        ...block,
+        stackGroup: "",
+      };
+    }
+  });
 }
 
 function addAnimatedVariation(blockIndex) {
@@ -2586,7 +2618,6 @@ function renderPostPreview(post) {
 
   const bodyHtml = renderPostBody(post);
   const coverImage = getSafeImageSource(post.coverImage);
-  const structuredContentHtml = renderStructuredContentBlocks(post.contentBlocks);
   const markup = `
     <p class="eyebrow">${escapeHtml(getCategoryName(post.category))}</p>
     <h3 class="preview-title">${escapeHtml(post.title || "Untitled")}</h3>
@@ -2610,11 +2641,22 @@ function renderPostPreview(post) {
       }
     </div>
     <div class="preview-body">${bodyHtml}</div>
-    ${structuredContentHtml}
+    <div data-trailing-preview-blocks></div>
   `;
 
   targets.forEach((target) => {
     target.innerHTML = markup;
+
+    const previewBodyEl = target.querySelector(".preview-body");
+    const trailingEl = target.querySelector("[data-trailing-preview-blocks]");
+    const inlinedIndices = expandInlineBlocks(previewBodyEl, post.contentBlocks);
+    const remainingBlocks = (post.contentBlocks || []).filter((_, i) => !inlinedIndices.has(i));
+    if (remainingBlocks.length) {
+      trailingEl.outerHTML = renderStructuredContentBlocks(remainingBlocks);
+    } else {
+      trailingEl.remove();
+    }
+
     initWeiqiContent(target);
   });
 }

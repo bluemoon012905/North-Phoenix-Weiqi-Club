@@ -1,5 +1,5 @@
 const { escapeHtml, formatDate, renderPostBody, escapeAttribute, getSafeImageSource } = window.BlueshellContent;
-const { renderStructuredContentBlocks, init: initWeiqiContent } = window.BlueshellWeiqi;
+const { expandInlineBlocks, renderStructuredContentBlocks, init: initWeiqiContent } = window.BlueshellWeiqi;
 
 // Speech synthesis state is shared across the read-aloud controls for a single post page.
 const speechState = {
@@ -78,7 +78,8 @@ async function loadPost() {
     }
   `;
 
-  document.getElementById("post-shell").innerHTML = `
+  const postShell = document.getElementById("post-shell");
+  postShell.innerHTML = `
     <div class="post-meta">
       <span class="tag">${formatDate(post.date)}</span>
       ${(post.tags || []).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}
@@ -97,10 +98,21 @@ async function loadPost() {
       </div>
     </div>
     <div class="post-body">${renderPostBody(post)}</div>
-    ${renderStructuredContentBlocks(post.contentBlocks)}
+    <div data-trailing-blocks></div>
   `;
 
-  initWeiqiContent(document.getElementById("post-shell"));
+  const postBodyEl = postShell.querySelector(".post-body");
+  const inlinedIndices = expandInlineBlocks(postBodyEl, post.contentBlocks);
+
+  const remainingBlocks = (post.contentBlocks || []).filter((_, i) => !inlinedIndices.has(i));
+  const trailingEl = postShell.querySelector("[data-trailing-blocks]");
+  if (remainingBlocks.length) {
+    trailingEl.outerHTML = renderStructuredContentBlocks(remainingBlocks);
+  } else {
+    trailingEl.remove();
+  }
+
+  initWeiqiContent(postShell);
 
   // Bind read-aloud after the post body exists so text extraction can use the rendered DOM.
   bindReadAloud(post);

@@ -2,6 +2,7 @@
 const BlueshellWeiqi = (() => {
   const BOARD_SIZES = new Set([9, 13, 19]);
   const BLOCK_SELECTOR = "[data-weiqi-block]";
+  const STACK_SELECTOR = "[data-weiqi-stack]";
   const boardRegistry = new WeakMap();
   const SVG_DIMENSION = 512;
   const SVG_PADDING = 30;
@@ -193,6 +194,7 @@ const BlueshellWeiqi = (() => {
       ...block,
       boardSize,
       coordinateSystem: block.coordinateSystem || "zero-based",
+      stackGroup: typeof block.stackGroup === "string" ? block.stackGroup.trim() : "",
       initialPosition: Array.isArray(block.initialPosition) ? block.initialPosition.map(normalizeMove).filter(Boolean) : [],
       markers: Array.isArray(block.markers) ? block.markers.map(normalizeMarker).filter(Boolean) : [],
       viewWindow: normalizeViewWindow(boardSize, block.viewWindow),
@@ -208,29 +210,107 @@ const BlueshellWeiqi = (() => {
     };
   }
 
+  function expandInlineBlocks(rootElement, blocks) {
+    const normalizedBlocks = normalizeBlocks(blocks);
+    const inlinedIndices = new Set();
+
+    rootElement.querySelectorAll("[data-weiqi-block-index]").forEach((placeholder) => {
+      const index = parseInt(placeholder.dataset.weiqiBlockIndex, 10);
+      if (isNaN(index) || index < 0 || index >= normalizedBlocks.length) {
+        return;
+      }
+
+      const rawBlock = normalizedBlocks[index];
+      let blockHtml;
+      if (rawBlock.type === "weiqi") {
+        blockHtml = renderWeiqiBlockShell(normalizeWeiqiBlock(rawBlock));
+      } else {
+        blockHtml = `<section class="structured-block structured-block-unsupported"><p class="structured-block-label">Unsupported content</p><pre>${escapeHtml(JSON.stringify(rawBlock, null, 2))}</pre></section>`;
+      }
+
+      const container = document.createElement("div");
+      container.innerHTML = blockHtml;
+      placeholder.replaceWith(...container.childNodes);
+      inlinedIndices.add(index);
+    });
+
+    return inlinedIndices;
+  }
+
   function renderStructuredContentBlocks(blocks) {
     const normalizedBlocks = normalizeBlocks(blocks);
     if (!normalizedBlocks.length) {
       return "";
     }
 
-    return `<div class="post-structured-content">${normalizedBlocks
-      .map((rawBlock) => {
-        if (rawBlock.type === "weiqi") {
-          return renderWeiqiBlockShell(normalizeWeiqiBlock(rawBlock));
+    const renderedBlocks = [];
+    for (let index = 0; index < normalizedBlocks.length; index += 1) {
+      const rawBlock = normalizedBlocks[index];
+      if (rawBlock.type === "weiqi") {
+        const normalizedBlock = normalizeWeiqiBlock(rawBlock);
+        const stackBlocks = [normalizedBlock];
+        while (
+          index + 1 < normalizedBlocks.length &&
+          normalizedBlocks[index + 1]?.type === "weiqi" &&
+          normalizeWeiqiBlock(normalizedBlocks[index + 1]).stackGroup &&
+          normalizeWeiqiBlock(normalizedBlocks[index + 1]).stackGroup === normalizedBlock.stackGroup &&
+          normalizedBlock.stackGroup
+        ) {
+          stackBlocks.push(normalizeWeiqiBlock(normalizedBlocks[index + 1]));
+          index += 1;
         }
 
-        return `
-          <section class="structured-block structured-block-unsupported">
-            <p class="structured-block-label">Unsupported content</p>
-            <pre>${escapeHtml(JSON.stringify(rawBlock, null, 2))}</pre>
-          </section>
-        `;
-      })
-      .join("")}</div>`;
+        if (stackBlocks.length > 1) {
+          renderedBlocks.push(renderWeiqiStackShell(stackBlocks));
+        } else {
+          renderedBlocks.push(renderWeiqiBlockShell(normalizedBlock));
+        }
+        continue;
+      }
+
+      renderedBlocks.push(`
+        <section class="structured-block structured-block-unsupported">
+          <p class="structured-block-label">Unsupported content</p>
+          <pre>${escapeHtml(JSON.stringify(rawBlock, null, 2))}</pre>
+        </section>
+      `);
+    }
+
+    return `<div class="post-structured-content">${renderedBlocks.join("")}</div>`;
+  }
+
+  function renderWeiqiStackShell(blocks) {
+    return `
+      <section class="structured-block weiqi-stack" data-weiqi-stack data-active-stack-index="0">
+        <div class="weiqi-stack-pages">
+          ${blocks
+            .map(
+              (block, index) => `
+                <div class="weiqi-stack-page ${index === 0 ? "" : "hidden"}" data-weiqi-stack-page="${index}">
+                  ${renderWeiqiBlockInner(block)}
+                </div>
+              `
+            )
+            .join("")}
+        </div>
+        <div class="weiqi-stack-nav">
+          <button type="button" class="secondary-ink" data-weiqi-stack-action="prev" aria-label="Previous stacked board">←</button>
+          <p class="weiqi-stack-status" data-weiqi-stack-status>Board 1 of ${blocks.length}</p>
+          <button type="button" class="secondary-ink" data-weiqi-stack-action="next" aria-label="Next stacked board">→</button>
+        </div>
+      </section>
+    `;
   }
 
   function renderWeiqiBlockShell(block) {
+    return `
+      <section class="structured-block weiqi-block" data-weiqi-block="${escapeAttribute(JSON.stringify(block))}">
+        ${renderWeiqiBlockInner(block)}
+      </section>
+    `;
+  }
+
+  function renderWeiqiBlockInner(block) {
     const payload = escapeAttribute(JSON.stringify(block));
     const modeLabel = escapeHtml(getModeLabel(block.mode));
     const caption = block.caption ? `<p class="weiqi-caption">${escapeHtml(block.caption)}</p>` : "";
@@ -243,25 +323,23 @@ const BlueshellWeiqi = (() => {
     const controls = renderControls(block);
 
     return `
-      <section class="structured-block weiqi-block" data-weiqi-block="${payload}">
-        <div class="weiqi-header">
-          <div>
-            <p class="structured-block-label">Weiqi ${modeLabel}</p>
-            ${caption}
-            ${prompt}
-          </div>
-          <p class="weiqi-meta">${escapeHtml(`${block.boardSize}x${block.boardSize} board • zero-based coordinates`)}</p>
+      <div class="weiqi-header">
+        <div>
+          <p class="structured-block-label">Weiqi ${modeLabel}</p>
+          ${caption}
+          ${prompt}
         </div>
-        <div class="weiqi-board-shell ${block.mode === "puzzle" ? "is-clickable" : ""}">
-          <div class="weiqi-board" data-weiqi-board role="${block.mode === "puzzle" ? "button" : "img"}" aria-label="${escapeAttribute(
-            getAriaLabel(block)
-          )}" tabindex="${block.mode === "puzzle" ? "0" : "-1"}"></div>
-        </div>
-        ${dynamicCaption}
-        ${controls}
-        <p class="weiqi-status" data-weiqi-status></p>
-        ${explanation}
-      </section>
+        <p class="weiqi-meta">${escapeHtml(`${block.boardSize}x${block.boardSize} board • zero-based coordinates`)}</p>
+      </div>
+      <div class="weiqi-board-shell ${block.mode === "puzzle" ? "is-clickable" : ""}">
+        <div class="weiqi-board" data-weiqi-board role="${block.mode === "puzzle" ? "button" : "img"}" aria-label="${escapeAttribute(
+          getAriaLabel(block)
+        )}" tabindex="${block.mode === "puzzle" ? "0" : "-1"}"></div>
+      </div>
+      ${dynamicCaption}
+      ${controls}
+      <p class="weiqi-status" data-weiqi-status></p>
+      ${explanation}
     `;
   }
 
@@ -332,6 +410,46 @@ const BlueshellWeiqi = (() => {
         }
       }
     });
+    initStacks(root);
+  }
+
+  function initStacks(root = document) {
+    root.querySelectorAll(STACK_SELECTOR).forEach((stackElement) => {
+      if (stackElement.dataset.weiqiStackBound === "true") {
+        updateStackDisplay(stackElement);
+        return;
+      }
+
+      stackElement.dataset.weiqiStackBound = "true";
+      stackElement.addEventListener("click", (event) => {
+        const actionButton = event.target.closest("[data-weiqi-stack-action]");
+        if (!actionButton) {
+          return;
+        }
+
+        const pages = [...stackElement.querySelectorAll("[data-weiqi-stack-page]")];
+        const currentIndex = Number(stackElement.dataset.activeStackIndex || "0");
+        const delta = actionButton.dataset.weiqiStackAction === "prev" ? -1 : 1;
+        const nextIndex = (currentIndex + delta + pages.length) % pages.length;
+        stackElement.dataset.activeStackIndex = String(nextIndex);
+        updateStackDisplay(stackElement);
+      });
+
+      updateStackDisplay(stackElement);
+    });
+  }
+
+  function updateStackDisplay(stackElement) {
+    const pages = [...stackElement.querySelectorAll("[data-weiqi-stack-page]")];
+    const activeIndex = clamp(Number(stackElement.dataset.activeStackIndex || "0"), 0, Math.max(0, pages.length - 1));
+    stackElement.dataset.activeStackIndex = String(activeIndex);
+    pages.forEach((page, index) => {
+      page.classList.toggle("hidden", index !== activeIndex);
+    });
+    const status = stackElement.querySelector("[data-weiqi-stack-status]");
+    if (status) {
+      status.textContent = `Board ${activeIndex + 1} of ${pages.length}`;
+    }
   }
 
   function teardown(element) {
@@ -518,16 +636,33 @@ const BlueshellWeiqi = (() => {
       return;
     }
 
-    // In single-side mode, auto-play the opponent's authored response.
+    // In single-side mode, auto-play a randomly chosen opponent response.
+    // Distinct moves are deduplicated by position so transposing branches that share
+    // the same opponent move count as one option and stay in play together.
     if (playerSide !== "both") {
       const opponentMoveIndex = state.appliedMoves.length;
       const remainingBranches = getMatchingPuzzleBranches(branches, state.appliedMoves);
-      const opponentMove = remainingBranches[0]?.moves?.[opponentMoveIndex];
 
-      if (opponentMove && opponentMove.color !== playerSide) {
+      const distinctOpponentMoves = [];
+      const seenOpponentKeys = new Set();
+      remainingBranches.forEach((branch) => {
+        const move = branch.moves?.[opponentMoveIndex];
+        if (move && move.color !== playerSide) {
+          const key = getPointKey(move);
+          if (!seenOpponentKeys.has(key)) {
+            seenOpponentKeys.add(key);
+            distinctOpponentMoves.push(move);
+          }
+        }
+      });
+
+      if (distinctOpponentMoves.length > 0) {
+        const opponentMove = distinctOpponentMoves[Math.floor(Math.random() * distinctOpponentMoves.length)];
         state.appliedMoves = [...state.appliedMoves, opponentMove];
 
-        const exactAfterOpponent = remainingBranches.filter((b) => b.moves.length === state.appliedMoves.length);
+        // Re-match with the chosen opponent move applied so transpositions resolve correctly.
+        const afterOpponentBranches = getMatchingPuzzleBranches(branches, state.appliedMoves);
+        const exactAfterOpponent = afterOpponentBranches.filter((b) => b.moves.length === state.appliedMoves.length);
         if (exactAfterOpponent.length) {
           const terminalBranch = exactAfterOpponent[0];
           if (terminalBranch.outcome === "correct") {
@@ -541,8 +676,7 @@ const BlueshellWeiqi = (() => {
           return;
         }
 
-        const afterOpponentRemaining = getMatchingPuzzleBranches(branches, state.appliedMoves);
-        state.status = `Your move accepted. ${afterOpponentRemaining.length} continuation${afterOpponentRemaining.length === 1 ? "" : "s"} remain.`;
+        state.status = `Your move accepted. ${afterOpponentBranches.length} continuation${afterOpponentBranches.length === 1 ? "" : "s"} remain.`;
         renderBlock(boardElement.closest(BLOCK_SELECTOR), state);
         return;
       }
@@ -982,6 +1116,7 @@ const BlueshellWeiqi = (() => {
     BOARD_SIZES,
     escapeHtml,
     escapeAttribute,
+    expandInlineBlocks,
     renderStructuredContentBlocks,
     init,
     normalizeWeiqiBlock,

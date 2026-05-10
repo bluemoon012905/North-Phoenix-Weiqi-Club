@@ -884,6 +884,33 @@ textarea {
   background: rgba(245, 248, 252, 0.82);
 }
 
+.weiqi-stack-pages {
+  position: relative;
+}
+
+.weiqi-stack-page {
+  position: relative;
+}
+
+.weiqi-stack-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.weiqi-stack-status {
+  margin: 0;
+  min-width: 132px;
+  text-align: center;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+}
+
 .structured-block-label {
   margin: 0 0 10px;
   text-transform: uppercase;

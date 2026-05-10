@@ -143,6 +143,10 @@ fields.addWeiqiBlockButton.addEventListener("click", () => {
   addWeiqiBlock();
 });
 
+fields.insertInlineWeiqiButton.addEventListener("click", () => {
+  insertWeiqiBlockInline();
+});
+
 fields.coverImageUploadInput.addEventListener("change", async (event) => {
   try {
     const [file] = event.target.files || [];
@@ -233,12 +237,6 @@ fields.contentBlockFields.addEventListener("change", (event) => {
 });
 
 fields.contentBlockFields.addEventListener("click", (event) => {
-  const stackControlButton = event.target.closest('[data-action="select-prev-block"], [data-action="select-next-block"]');
-  if (stackControlButton) {
-    selectAdjacentContentBlock(stackControlButton.dataset.action === "select-prev-block" ? "prev" : "next");
-    return;
-  }
-
   const deleteButton = event.target.closest('[data-action="delete-block"]');
   if (deleteButton) {
     deleteContentBlock(Number(deleteButton.dataset.contentBlockIndex));
@@ -321,6 +319,10 @@ fields.contentBlockFields.addEventListener("click", (event) => {
         clearPuzzleBranch(blockIndex);
         return;
       }
+      if (actionButton.dataset.action === "unstack-block") {
+        unstackWeiqiBlock(blockIndex);
+        return;
+      }
     } catch (error) {
       setStatus(error.message);
       return;
@@ -339,13 +341,6 @@ fields.contentBlockFields.addEventListener("click", (event) => {
 });
 
 fields.contentBlockFields.addEventListener("mousedown", (event) => {
-  const dragHandle = event.target.closest('[data-action="drag-block"]');
-  if (dragHandle) {
-    event.preventDefault();
-    beginContentBlockDrag(Number(dragHandle.dataset.contentBlockIndex), event);
-    return;
-  }
-
   // Prevent text selection while dragging the Weiqi viewport window in the overview board.
   const overviewBoard = event.target.closest("[data-overview-board]");
   const viewportHandle = event.target.closest("[data-viewport-handle]");
@@ -362,12 +357,96 @@ fields.contentBlockFields.addEventListener("mousedown", (event) => {
   }
 });
 
-document.addEventListener("mousemove", (event) => {
-  if (editorState.contentBlockDrag) {
-    continueContentBlockDrag(event);
+fields.contentBlockFields.addEventListener("dragstart", (event) => {
+  const dragHandle = event.target.closest("[data-drag-block-handle]");
+  if (!dragHandle) {
     return;
   }
 
+  beginContentBlockDrag(Number(dragHandle.dataset.contentBlockIndex));
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", dragHandle.dataset.contentBlockIndex || "");
+  }
+});
+
+fields.contentBlockFields.addEventListener("dragover", (event) => {
+  const card = event.target.closest(".content-block-card");
+  if (!card || !editorState.contentBlockDrag) {
+    return;
+  }
+
+  const targetIndex = Number(card.dataset.contentBlockCardIndex);
+  if (targetIndex === editorState.contentBlockDrag.sourceIndex) {
+    return;
+  }
+
+  event.preventDefault();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = "move";
+  }
+  setContentBlockDropTarget(targetIndex);
+});
+
+fields.contentBlockFields.addEventListener("dragleave", (event) => {
+  const card = event.target.closest(".content-block-card");
+  if (!card || !editorState.contentBlockDrag) {
+    return;
+  }
+
+  const relatedTarget = event.relatedTarget;
+  if (relatedTarget && card.contains(relatedTarget)) {
+    return;
+  }
+
+  const targetIndex = Number(card.dataset.contentBlockCardIndex);
+  if (editorState.contentBlockDrag.targetIndex === targetIndex) {
+    card.classList.remove("is-drop-target");
+    editorState.contentBlockDrag.targetIndex = null;
+  }
+});
+
+fields.contentBlockFields.addEventListener("drop", (event) => {
+  const card = event.target.closest(".content-block-card");
+  if (!card || !editorState.contentBlockDrag) {
+    return;
+  }
+
+  event.preventDefault();
+  const sourceIndex = editorState.contentBlockDrag.sourceIndex;
+  const targetIndex = Number(card.dataset.contentBlockCardIndex);
+  endContentBlockDrag();
+
+  if (!Number.isInteger(sourceIndex) || sourceIndex === targetIndex) {
+    return;
+  }
+
+  const result = moveContentBlock(sourceIndex, targetIndex);
+  if (!result) {
+    return;
+  }
+
+  if (!Number.isInteger(result.partnerIndex) || result.partnerIndex < 0) {
+    return;
+  }
+
+  const post = getCurrentPost();
+  const firstBlock = post?.contentBlocks?.[result.movedIndex];
+  const secondBlock = post?.contentBlocks?.[result.partnerIndex];
+  if (firstBlock?.type !== "weiqi" || secondBlock?.type !== "weiqi") {
+    return;
+  }
+
+  if (window.confirm("Stack these two Weiqi blocks together in the public post view?")) {
+    stackWeiqiBlocks(result.movedIndex, result.partnerIndex);
+  }
+});
+
+fields.contentBlockFields.addEventListener("dragend", () => {
+  endContentBlockDrag();
+});
+
+document.addEventListener("mousemove", (event) => {
   if (!editorState.weiqiViewportDrag) {
     return;
   }
@@ -381,10 +460,6 @@ document.addEventListener("mousemove", (event) => {
 });
 
 document.addEventListener("mouseup", () => {
-  if (editorState.contentBlockDrag) {
-    endContentBlockDrag();
-  }
-
   if (editorState.weiqiViewportDrag) {
     endWeiqiViewportDrag();
   }
