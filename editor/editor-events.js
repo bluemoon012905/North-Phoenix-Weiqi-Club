@@ -576,8 +576,10 @@ fields.exportButton.addEventListener("click", () => {
 fields.saveButton.addEventListener("click", async () => {
   try {
     await saveAllChanges();
+    setStatus("Saved to data/content.json and data/posts/", "success");
   } catch (error) {
-    setStatus(error.message);
+    setStatus(`Save failed: ${error.message}`, "error");
+    alert(`Could not save:\n\n${error.message}`);
   }
 });
 
@@ -599,8 +601,10 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-function setStatus(message) {
+function setStatus(message, type = "") {
   fields.status.textContent = message;
+  fields.status.classList.toggle("is-error", type === "error");
+  fields.status.classList.toggle("is-success", type === "success");
 }
 
 function markDirty() {
@@ -615,9 +619,9 @@ async function autoSaveChanges() {
 
   try {
     await saveAllChanges();
-    setStatus("Autosaved to data/content.json and data/posts/");
+    setStatus("Autosaved", "success");
   } catch (error) {
-    setStatus(`Autosave failed: ${error.message}`);
+    setStatus(`Autosave failed: ${error.message}`, "error");
   }
 }
 

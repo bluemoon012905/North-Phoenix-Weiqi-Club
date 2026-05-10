@@ -393,6 +393,20 @@ button.danger:hover {
 
 .status-message {
   margin: 0;
+  padding: 6px 10px;
+  border-radius: 4px;
+  transition: background 0.2s, color 0.2s;
+}
+
+.status-message.is-error {
+  background: #fde8e8;
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.status-message.is-success {
+  background: #e8f5e9;
+  color: #166534;
 }
 
 .form-grid {

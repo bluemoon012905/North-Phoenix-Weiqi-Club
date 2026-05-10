@@ -454,16 +454,22 @@
       return;
     }
 
-    if (boardType === "overview") {
-      moveViewWindowToCoordinate(block, coordinate);
-    } else if (editorUiState.layer === "markers") {
-      placeMarkerOnBlock(block, coordinate, editorUiState);
-    } else if (editorUiState.layer === "initial") {
-      placeStoneInInitialPosition(block, coordinate, editorUiState.tool);
-    } else if (editorUiState.layer === "variation") {
-      appendStoneToVariation(block, editorUiState, coordinate);
-    } else if (editorUiState.layer === "branch") {
-      appendStoneToPuzzleBranch(block, editorUiState, coordinate);
+    try {
+      if (boardType === "overview") {
+        moveViewWindowToCoordinate(block, coordinate);
+      } else if (editorUiState.layer === "markers") {
+        placeMarkerOnBlock(block, coordinate, editorUiState);
+      } else if (editorUiState.layer === "initial") {
+        placeStoneInInitialPosition(block, coordinate, editorUiState.tool);
+      } else if (editorUiState.layer === "variation") {
+        appendStoneToVariation(block, editorUiState, coordinate);
+      } else if (editorUiState.layer === "branch") {
+        appendStoneToPuzzleBranch(block, editorUiState, coordinate);
+      }
+    } catch (error) {
+      const { setStatus } = getEnv();
+      setStatus(error.message, "error");
+      return;
     }
 
     post.contentBlocks[blockIndex] = normalizeWeiqiBlock(block);
@@ -628,7 +634,7 @@
   }
 
   function updateSequenceMoves(initialPosition, sequence, boardSize, coordinate, tool) {
-    const occupied = applyMoveSequence(initialPosition, sequence, boardSize).stoneMap;
+    const currentStoneMap = applyMoveSequence(initialPosition, sequence, boardSize).stoneMap;
     const key = getPointKey(coordinate);
 
     const existingIndex = sequence.findIndex((move) => getPointKey(move) === key);
@@ -639,7 +645,7 @@
       return;
     }
 
-    if (occupied.has(key)) {
+    if (currentStoneMap.has(key)) {
       throw new Error("That point is already occupied in this line.");
     }
 

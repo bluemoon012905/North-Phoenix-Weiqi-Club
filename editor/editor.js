@@ -1659,7 +1659,7 @@ async function saveAllChanges() {
   syncAllFields();
   validateBeforeSave();
   editorState.saveInFlight = true;
-  setStatus("Saving...");
+  setStatus("Saving...", "");
 
   try {
     const response = await fetch("/api/content", {
@@ -1670,12 +1670,22 @@ async function saveAllChanges() {
       body: JSON.stringify(editorState.content, null, 2),
     });
 
+    const json = await response.json().catch(() => null);
+
     if (!response.ok) {
-      throw new Error("Save failed.");
+      const message = (json && json.error) || "Save failed.";
+      throw new Error(message);
     }
 
     editorState.hasUnsavedChanges = false;
-    setStatus("Saved to data/content.json and data/posts/");
+
+    // Report any per-post validation failures that were skipped rather than blocking the save.
+    if (json && Array.isArray(json.warnings) && json.warnings.length) {
+      const list = json.warnings.join("\n");
+      setStatus(`Saved (with issues on some posts — those posts kept their last saved state)`, "error");
+      alert(`Most changes saved, but these posts could not be updated due to errors:\n\n${list}\n\nFix the listed issues and save again.`);
+      return;
+    }
   } finally {
     editorState.saveInFlight = false;
   }
@@ -1756,7 +1766,8 @@ function validateBeforeSave() {
         normalizedBlock.branches || [],
         normalizedBlock.boardSize,
         "Puzzle branch",
-        normalizedBlock.playerSide || "both"
+        normalizedBlock.playerSide || "both",
+        { allowIncompletePrefixOverlap: true }
       );
 
       (normalizedBlock.markers || []).forEach((marker, markerIndex) => {
@@ -1969,6 +1980,6 @@ weiqiTools.configure({
   getWeiqiEditorState,
   renderContentBlockFields,
   renderPostPreview,
-  setStatus: (message) => window.setStatus(message),
+  setStatus: (message, type) => window.setStatus(message, type),
   markDirty: () => window.markDirty(),
 });

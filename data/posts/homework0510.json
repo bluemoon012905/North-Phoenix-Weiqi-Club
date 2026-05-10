@@ -372,9 +372,92 @@
               "color": "white",
               "x": 16,
               "y": 2
+            },
+            {
+              "color": "black",
+              "x": 15,
+              "y": 2
+            },
+            {
+              "color": "white",
+              "x": 16,
+              "y": 3
+            },
+            {
+              "color": "black",
+              "x": 17,
+              "y": 2
+            },
+            {
+              "color": "white",
+              "x": 17,
+              "y": 6
+            },
+            {
+              "color": "black",
+              "x": 18,
+              "y": 2
+            },
+            {
+              "color": "white",
+              "x": 18,
+              "y": 5
+            },
+            {
+              "color": "black",
+              "x": 18,
+              "y": 4
             }
           ],
           "outcome": "correct",
+          "message": ""
+        },
+        {
+          "id": "branch-1778392188096",
+          "label": "Branch 2",
+          "moves": [
+            {
+              "color": "black",
+              "x": 15,
+              "y": 2
+            },
+            {
+              "color": "white",
+              "x": 16,
+              "y": 3
+            },
+            {
+              "color": "black",
+              "x": 16,
+              "y": 2
+            },
+            {
+              "color": "white",
+              "x": 17,
+              "y": 6
+            },
+            {
+              "color": "black",
+              "x": 17,
+              "y": 2
+            },
+            {
+              "color": "white",
+              "x": 18,
+              "y": 5
+            },
+            {
+              "color": "black",
+              "x": 18,
+              "y": 2
+            },
+            {
+              "color": "white",
+              "x": 18,
+              "y": 4
+            }
+          ],
+          "outcome": "incorrect",
           "message": ""
         }
       ],
@@ -515,13 +598,112 @@
         {
           "id": "branch-1",
           "label": "Branch 1",
-          "moves": [],
+          "moves": [
+            {
+              "color": "black",
+              "x": 14,
+              "y": 1
+            },
+            {
+              "color": "white",
+              "x": 14,
+              "y": 2
+            },
+            {
+              "color": "black",
+              "x": 13,
+              "y": 2
+            },
+            {
+              "color": "white",
+              "x": 14,
+              "y": 4
+            },
+            {
+              "color": "black",
+              "x": 13,
+              "y": 4
+            },
+            {
+              "color": "white",
+              "x": 13,
+              "y": 3
+            },
+            {
+              "color": "black",
+              "x": 15,
+              "y": 1
+            },
+            {
+              "color": "white",
+              "x": 12,
+              "y": 3
+            },
+            {
+              "color": "black",
+              "x": 14,
+              "y": 3
+            }
+          ],
+          "outcome": "correct",
+          "message": ""
+        },
+        {
+          "id": "branch-1778392215898",
+          "label": "Branch 2",
+          "moves": [
+            {
+              "color": "black",
+              "x": 14,
+              "y": 1
+            },
+            {
+              "color": "white",
+              "x": 14,
+              "y": 4
+            },
+            {
+              "color": "black",
+              "x": 13,
+              "y": 4
+            },
+            {
+              "color": "white",
+              "x": 14,
+              "y": 2
+            },
+            {
+              "color": "black",
+              "x": 13,
+              "y": 2
+            },
+            {
+              "color": "white",
+              "x": 13,
+              "y": 3
+            },
+            {
+              "color": "black",
+              "x": 15,
+              "y": 1
+            },
+            {
+              "color": "white",
+              "x": 14,
+              "y": 3
+            },
+            {
+              "color": "black",
+              "x": 12,
+              "y": 3
+            }
+          ],
           "outcome": "correct",
           "message": ""
         }
       ],
       "defaultIncorrectMessage": "That move does not match an authored variation.",
-      "playerSide": "both",
+      "playerSide": "black",
       "prompt": "Black to play. Find the best move.",
       "explanation": ""
     },
@@ -654,6 +836,181 @@
       "branches": [],
       "defaultIncorrectMessage": "That move does not match an authored variation.",
       "playerSide": "both"
+    },
+    {
+      "type": "weiqi",
+      "mode": "puzzle",
+      "boardSize": 19,
+      "coordinateSystem": "zero-based",
+      "caption": "New Weiqi block",
+      "stackGroup": "",
+      "initialPosition": [
+        {
+          "color": "black",
+          "x": 15,
+          "y": 3,
+          "markers": []
+        },
+        {
+          "color": "white",
+          "x": 16,
+          "y": 5,
+          "markers": []
+        }
+      ],
+      "markers": [],
+      "viewWindow": {
+        "xMin": 9,
+        "yMin": 0,
+        "xMax": 18,
+        "yMax": 9
+      },
+      "animationChunks": [
+        {
+          "id": "chunk-1",
+          "label": "Main line",
+          "caption": "",
+          "moves": []
+        }
+      ],
+      "successSequence": [],
+      "failureSequences": [],
+      "branches": [
+        {
+          "id": "branch-1",
+          "label": "Branch 1",
+          "moves": [
+            {
+              "color": "black",
+              "x": 15,
+              "y": 5
+            },
+            {
+              "color": "white",
+              "x": 15,
+              "y": 6
+            },
+            {
+              "color": "black",
+              "x": 14,
+              "y": 5
+            },
+            {
+              "color": "white",
+              "x": 16,
+              "y": 4
+            },
+            {
+              "color": "black",
+              "x": 16,
+              "y": 3
+            },
+            {
+              "color": "white",
+              "x": 16,
+              "y": 7
+            },
+            {
+              "color": "black",
+              "x": 13,
+              "y": 3
+            }
+          ],
+          "outcome": "correct",
+          "message": ""
+        }
+      ],
+      "defaultIncorrectMessage": "That move does not match an authored variation.",
+      "playerSide": "black",
+      "prompt": "Black to play. Find the best move.",
+      "explanation": ""
+    },
+    {
+      "type": "weiqi",
+      "mode": "puzzle",
+      "boardSize": 19,
+      "coordinateSystem": "zero-based",
+      "caption": "New Weiqi block",
+      "stackGroup": "",
+      "initialPosition": [
+        {
+          "color": "black",
+          "x": 15,
+          "y": 3,
+          "markers": []
+        }
+      ],
+      "markers": [],
+      "viewWindow": {
+        "xMin": 9,
+        "yMin": 0,
+        "xMax": 18,
+        "yMax": 9
+      },
+      "animationChunks": [
+        {
+          "id": "chunk-1",
+          "label": "Main line",
+          "caption": "",
+          "moves": []
+        }
+      ],
+      "successSequence": [],
+      "failureSequences": [],
+      "branches": [
+        {
+          "id": "branch-1",
+          "label": "Branch 1",
+          "moves": [
+            {
+              "color": "white",
+              "x": 16,
+              "y": 5
+            },
+            {
+              "color": "black",
+              "x": 15,
+              "y": 5
+            },
+            {
+              "color": "white",
+              "x": 15,
+              "y": 6
+            },
+            {
+              "color": "black",
+              "x": 14,
+              "y": 5
+            },
+            {
+              "color": "white",
+              "x": 16,
+              "y": 4
+            },
+            {
+              "color": "black",
+              "x": 16,
+              "y": 3
+            },
+            {
+              "color": "white",
+              "x": 16,
+              "y": 7
+            },
+            {
+              "color": "black",
+              "x": 13,
+              "y": 3
+            }
+          ],
+          "outcome": "correct",
+          "message": ""
+        }
+      ],
+      "defaultIncorrectMessage": "That move does not match an authored variation.",
+      "playerSide": "white",
+      "prompt": "Black to play. Find the best move.",
+      "explanation": ""
     }
   ]
 }

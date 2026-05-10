@@ -110,9 +110,25 @@ async function saveContent(request, response) {
   try {
     const rawBody = await readBody(request);
     const parsedBody = JSON.parse(rawBody);
-    validateContent(parsedBody);
-    writeSplitContent(parsedBody);
-    sendJson(response, 200, { ok: true });
+
+    if (!parsedBody || typeof parsedBody !== "object") {
+      return sendJson(response, 400, { ok: false, error: "Content payload must be an object." });
+    }
+    if (!parsedBody.site || !Array.isArray(parsedBody.categories) || !Array.isArray(parsedBody.posts)) {
+      return sendJson(response, 400, { ok: false, error: "Content must include site, categories, and posts." });
+    }
+
+    const { postResults, fatalError } = validateAndWriteSplitContent(parsedBody);
+    if (fatalError) {
+      return sendJson(response, 400, { ok: false, error: fatalError });
+    }
+
+    const failedPosts = postResults.filter((r) => !r.ok);
+    sendJson(response, 200, {
+      ok: true,
+      postResults,
+      warnings: failedPosts.map((r) => `"${r.id}": ${r.error}`),
+    });
   } catch (error) {
     sendJson(response, 400, { ok: false, error: error.message });
   }
@@ -161,42 +177,68 @@ function readPostsFromDirectory() {
   });
 }
 
-function writeSplitContent(content) {
+function validateAndWriteSplitContent(content) {
   fs.mkdirSync(postsDir, { recursive: true });
 
-  const siteContent = {
-    site: content.site,
-    categories: content.categories,
-  };
-  writeJsonFileAtomic(contentPath, siteContent);
+  // Always write the shared site/category data — these have no per-post risk.
+  writeJsonFileAtomic(contentPath, { site: content.site, categories: content.categories });
 
-  const nextPostIds = new Set();
-  const postsIndex = {
-    posts: content.posts.map((post) => {
-      nextPostIds.add(post.id);
+  // Validate and write each post independently. A bad puzzle in one post
+  // will not prevent the rest from saving.
+  const seenIds = new Set();
+  const postResults = [];
+  const savedPostIds = new Set();
+
+  content.posts.forEach((post, index) => {
+    const postLabel = post?.id ? `"${post.id}"` : `post ${index + 1}`;
+    try {
+      if (!post || typeof post !== "object") throw new Error("Invalid post object.");
+      if (typeof post.id !== "string" || !post.id.trim()) throw new Error("Post needs an id.");
+      if (!/^[a-z0-9-]+$/.test(post.id)) throw new Error(`Invalid post id format.`);
+      if (seenIds.has(post.id)) throw new Error(`Duplicate post id.`);
+      seenIds.add(post.id);
+
+      if (Array.isArray(post.contentBlocks)) {
+        post.contentBlocks.forEach((block, blockIndex) => {
+          validateContentBlock(block, index, blockIndex);
+        });
+      }
+
       const postPath = path.join(postsDir, `${post.id}.json`);
       writeJsonFileAtomic(postPath, post);
-      return buildPostIndexEntry(post);
-    }),
-  };
+      savedPostIds.add(post.id);
+      postResults.push({ id: post.id || postLabel, ok: true });
+    } catch (error) {
+      postResults.push({ id: post?.id || postLabel, ok: false, error: error.message });
+    }
+  });
 
-  // Update the index after post payloads land so readers never see index entries
-  // for posts whose files have not been committed yet.
+  // Build the index from all posts the editor sent — those that failed to
+  // save keep their last valid file on disk; the index still points to them.
+  const postsIndex = {
+    posts: content.posts
+      .filter((post) => post && typeof post.id === "string" && post.id.trim())
+      .map((post) => buildPostIndexEntry(post)),
+  };
   writeJsonFileAtomic(postsIndexPath, postsIndex);
 
-  // Remove deleted post files so the split-on-disk model stays in sync with editor state.
+  // Remove files for posts that were deleted from the editor (not in this save at all).
   if (fs.existsSync(postsDir)) {
+    const allSentIds = new Set(
+      content.posts.filter((p) => p?.id).map((p) => p.id)
+    );
     fs.readdirSync(postsDir, { withFileTypes: true }).forEach((entry) => {
       if (!entry.isFile() || path.extname(entry.name).toLowerCase() !== ".json" || entry.name === "index.json") {
         return;
       }
-
       const postId = path.basename(entry.name, ".json");
-      if (!nextPostIds.has(postId)) {
+      if (!allSentIds.has(postId)) {
         fs.unlinkSync(path.join(postsDir, entry.name));
       }
     });
   }
+
+  return { postResults, fatalError: null };
 }
 
 function buildPostIndexEntry(post) {
@@ -508,6 +550,10 @@ function validateWeiqiPuzzleBranches(list, boardSize, initialPosition, label) {
     for (let j = i + 1; j < list.length; j += 1) {
       const branchA = list[i];
       const branchB = list[j];
+      // Skip overlap check for branches still being built (no moves yet).
+      if (!branchA.moves.length || !branchB.moves.length) {
+        continue;
+      }
       const sharedLength = Math.min(branchA.moves.length, branchB.moves.length);
       let diverged = false;
 
@@ -521,7 +567,9 @@ function validateWeiqiPuzzleBranches(list, boardSize, initialPosition, label) {
       }
 
       if (!diverged && (branchA.moves.length === sharedLength || branchB.moves.length === sharedLength)) {
-        throw new Error(`${label} items ${i + 1} and ${j + 1} cannot end on the same prefix path.`);
+        throw new Error(
+          `${label} items ${i + 1} and ${j + 1} share the same move path — one branch ends where the other passes through. Give them different first moves or extend the shorter branch so they diverge.`
+        );
       }
     }
   }
