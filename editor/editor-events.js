@@ -233,6 +233,12 @@ fields.contentBlockFields.addEventListener("change", (event) => {
 });
 
 fields.contentBlockFields.addEventListener("click", (event) => {
+  const stackControlButton = event.target.closest('[data-action="select-prev-block"], [data-action="select-next-block"]');
+  if (stackControlButton) {
+    selectAdjacentContentBlock(stackControlButton.dataset.action === "select-prev-block" ? "prev" : "next");
+    return;
+  }
+
   const deleteButton = event.target.closest('[data-action="delete-block"]');
   if (deleteButton) {
     deleteContentBlock(Number(deleteButton.dataset.contentBlockIndex));
@@ -333,6 +339,13 @@ fields.contentBlockFields.addEventListener("click", (event) => {
 });
 
 fields.contentBlockFields.addEventListener("mousedown", (event) => {
+  const dragHandle = event.target.closest('[data-action="drag-block"]');
+  if (dragHandle) {
+    event.preventDefault();
+    beginContentBlockDrag(Number(dragHandle.dataset.contentBlockIndex), event);
+    return;
+  }
+
   // Prevent text selection while dragging the Weiqi viewport window in the overview board.
   const overviewBoard = event.target.closest("[data-overview-board]");
   const viewportHandle = event.target.closest("[data-viewport-handle]");
@@ -350,6 +363,11 @@ fields.contentBlockFields.addEventListener("mousedown", (event) => {
 });
 
 document.addEventListener("mousemove", (event) => {
+  if (editorState.contentBlockDrag) {
+    continueContentBlockDrag(event);
+    return;
+  }
+
   if (!editorState.weiqiViewportDrag) {
     return;
   }
@@ -363,6 +381,10 @@ document.addEventListener("mousemove", (event) => {
 });
 
 document.addEventListener("mouseup", () => {
+  if (editorState.contentBlockDrag) {
+    endContentBlockDrag();
+  }
+
   if (editorState.weiqiViewportDrag) {
     endWeiqiViewportDrag();
   }

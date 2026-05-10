@@ -153,7 +153,7 @@ const BlueshellWeiqi = (() => {
         id: branch.id || `branch-${index + 1}`,
         label: branch.label || `Branch ${index + 1}`,
         moves: Array.isArray(branch.moves) ? branch.moves : [],
-        outcome: branch.outcome === "correct" ? "correct" : "incorrect",
+        outcome: branch.outcome === "incorrect" ? "incorrect" : "correct",
         message: typeof branch.message === "string" ? branch.message : "",
       }));
     }
@@ -173,7 +173,7 @@ const BlueshellWeiqi = (() => {
     normalizePuzzleFailureSequences(block).forEach((sequence, index) => {
       branches.push({
         id: sequence.id || `branch-${branches.length + 1}`,
-        label: sequence.label || `Incorrect ${index + 1}`,
+        label: sequence.label || `Branch ${index + 2}`,
         moves: Array.isArray(sequence.moves) ? sequence.moves : [],
         outcome: "incorrect",
         message: typeof sequence.message === "string" ? sequence.message : "",
