@@ -55,6 +55,10 @@ const editorState = {
   weiqiEditors: {},
   contentBlockDrag: null,
   weiqiViewportDrag: null,
+  collapsedPanels: {
+    "homepage-copy": false,
+    "section-layout": false,
+  },
 };
 
 // The editor mirrors built-in homepage panels but still allows custom panels to be appended.
@@ -115,6 +119,8 @@ const fields = {
   editorDescriptionDisplay: document.getElementById("editor-description-display"),
   homePanelFields: document.getElementById("home-panel-fields"),
   newHomePanelButton: document.getElementById("new-home-panel-button"),
+  toggleHomepageCopyButton: document.getElementById("toggle-homepage-copy-button"),
+  toggleSectionLayoutButton: document.getElementById("toggle-section-layout-button"),
   postEditorHeading: document.getElementById("post-editor-heading"),
   postEditorCaption: document.getElementById("post-editor-caption"),
   postPreview: document.getElementById("post-preview"),
@@ -233,6 +239,7 @@ function populateSiteFields() {
   fields.editorTitle.value = site.editorTitle || "";
   fields.editorDescription.value = site.editorDescription || "";
   renderEditorSidebarCopy();
+  syncPanelDisplay();
 }
 
 function ensureHomePanels() {
@@ -259,6 +266,28 @@ function ensureHomePanels() {
       ...panel,
     })),
   ];
+}
+
+function syncPanelDisplay() {
+  document.querySelectorAll(".panel[data-panel-id]").forEach((panel) => {
+    const panelId = panel.dataset.panelId;
+    const isCollapsed = Boolean(editorState.collapsedPanels?.[panelId]);
+    panel.classList.toggle("is-collapsed", isCollapsed);
+
+    const toggleButton = panel.querySelector('[data-action="toggle-panel"]');
+    if (toggleButton) {
+      toggleButton.textContent = isCollapsed ? "Expand" : "Minimize";
+      toggleButton.setAttribute("aria-expanded", String(!isCollapsed));
+    }
+  });
+}
+
+function togglePanel(panelId) {
+  if (!panelId || !(panelId in editorState.collapsedPanels)) {
+    return;
+  }
+  editorState.collapsedPanels[panelId] = !editorState.collapsedPanels[panelId];
+  syncPanelDisplay();
 }
 
 function populateHomePanelFields() {

@@ -492,6 +492,14 @@ fields.newHomePanelButton.addEventListener("click", () => {
   createHomePanel();
 });
 
+[fields.toggleHomepageCopyButton, fields.toggleSectionLayoutButton]
+  .filter(Boolean)
+  .forEach((button) => {
+    button.addEventListener("click", () => {
+      togglePanel(button.dataset.panelId);
+    });
+  });
+
 fields.openPostEditorButton.addEventListener("click", () => {
   if (!trySyncAllFields("Fix the current post before opening the composer")) {
     return;

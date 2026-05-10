@@ -596,7 +596,7 @@ const BlueshellWeiqi = (() => {
       return;
     }
 
-    const occupied = buildStoneMap(state.block.initialPosition, state.appliedMoves);
+    const occupied = applyMoveSequence(state.block.initialPosition || [], state.appliedMoves, state.block.boardSize).stoneMap;
     if (occupied.has(getPointKey(coordinate))) {
       state.status = "That point is already occupied.";
       renderBlock(boardElement.closest(BLOCK_SELECTOR), state);
@@ -735,15 +735,16 @@ const BlueshellWeiqi = (() => {
     if (block.mode === "animated") {
       const playbackState = getAnimatedPlaybackState(block, state.selectedChunkIndex, state.moveIndex);
       return {
-        stones: [...(block.initialPosition || []), ...playbackState.moves],
+        stones: playbackState.stones,
         markers: [...(block.markers || []), ...(playbackState.activeMove?.markers || [])],
         lastMove: playbackState.activeMove || null,
       };
     }
 
     if (block.mode === "puzzle") {
+      const resolvedState = applyMoveSequence(block.initialPosition || [], state.appliedMoves, block.boardSize);
       return {
-        stones: [...(block.initialPosition || []), ...state.appliedMoves],
+        stones: resolvedState.stones,
         markers: block.markers || [],
         lastMove: state.appliedMoves[state.appliedMoves.length - 1] || null,
       };
@@ -981,6 +982,124 @@ const BlueshellWeiqi = (() => {
     return `${point.x},${point.y}`;
   }
 
+  function getNeighborPoints(point, boardSize) {
+    const neighbors = [];
+    if (point.x > 0) {
+      neighbors.push({ x: point.x - 1, y: point.y });
+    }
+    if (point.x < boardSize - 1) {
+      neighbors.push({ x: point.x + 1, y: point.y });
+    }
+    if (point.y > 0) {
+      neighbors.push({ x: point.x, y: point.y - 1 });
+    }
+    if (point.y < boardSize - 1) {
+      neighbors.push({ x: point.x, y: point.y + 1 });
+    }
+    return neighbors;
+  }
+
+  function collectConnectedGroup(stoneMap, startPoint, boardSize) {
+    const startStone = stoneMap.get(getPointKey(startPoint));
+    if (!startStone) {
+      return { stones: [], liberties: new Set() };
+    }
+
+    const queue = [startStone];
+    const visited = new Set();
+    const stones = [];
+    const liberties = new Set();
+
+    while (queue.length) {
+      const stone = queue.pop();
+      const stoneKey = getPointKey(stone);
+      if (visited.has(stoneKey)) {
+        continue;
+      }
+
+      visited.add(stoneKey);
+      stones.push(stone);
+
+      getNeighborPoints(stone, boardSize).forEach((neighbor) => {
+        const neighborKey = getPointKey(neighbor);
+        const neighborStone = stoneMap.get(neighborKey);
+        if (!neighborStone) {
+          liberties.add(neighborKey);
+          return;
+        }
+
+        if (neighborStone.color === startStone.color && !visited.has(neighborKey)) {
+          queue.push(neighborStone);
+        }
+      });
+    }
+
+    return { stones, liberties };
+  }
+
+  function applyMoveToStoneMap(stoneMap, move, boardSize) {
+    const pointKey = getPointKey(move);
+    if (stoneMap.has(pointKey)) {
+      throw new Error(`Move ${move.color} at (${move.x}, ${move.y}) plays on an occupied point.`);
+    }
+
+    const nextMap = new Map(stoneMap);
+    const placedStone = { ...move };
+    nextMap.set(pointKey, placedStone);
+
+    const opponentColor = move.color === "black" ? "white" : "black";
+    const capturedStones = [];
+    const processedOpponentGroups = new Set();
+
+    getNeighborPoints(move, boardSize).forEach((neighbor) => {
+      const neighborKey = getPointKey(neighbor);
+      const neighborStone = nextMap.get(neighborKey);
+      if (!neighborStone || neighborStone.color !== opponentColor || processedOpponentGroups.has(neighborKey)) {
+        return;
+      }
+
+      const opponentGroup = collectConnectedGroup(nextMap, neighborStone, boardSize);
+      opponentGroup.stones.forEach((stone) => processedOpponentGroups.add(getPointKey(stone)));
+      if (opponentGroup.liberties.size === 0) {
+        opponentGroup.stones.forEach((stone) => {
+          nextMap.delete(getPointKey(stone));
+          capturedStones.push(stone);
+        });
+      }
+    });
+
+    const ownGroup = collectConnectedGroup(nextMap, placedStone, boardSize);
+    if (ownGroup.liberties.size === 0) {
+      throw new Error(`Move ${move.color} at (${move.x}, ${move.y}) has no liberties after captures.`);
+    }
+
+    return {
+      stoneMap: nextMap,
+      stones: [...nextMap.values()],
+      capturedStones,
+    };
+  }
+
+  function applyMoveSequence(initialPosition, sequence, boardSize) {
+    let stoneMap = buildStoneMap(initialPosition);
+    let lastMove = null;
+    let lastCapturedStones = [];
+
+    (sequence || []).forEach((move) => {
+      const result = applyMoveToStoneMap(stoneMap, move, boardSize);
+      stoneMap = result.stoneMap;
+      lastMove = move;
+      lastCapturedStones = result.capturedStones;
+    });
+
+    return {
+      stoneMap,
+      stones: [...stoneMap.values()],
+      lastMove,
+      lastCapturedStones,
+    };
+  }
+
   function getCoordinateFromPointer(boardElement, boardSize, event, viewWindow = getDefaultViewWindow(boardSize)) {
     const rect = boardElement.getBoundingClientRect();
     if (!rect.width || !rect.height) {
@@ -1092,10 +1211,12 @@ const BlueshellWeiqi = (() => {
 
     const activeChunk = chunks[safeChunkIndex] || null;
     const activeMove = activeChunk && moveIndex > 0 ? activeChunk.moves[moveIndex - 1] || null : null;
+    const resolvedState = applyMoveSequence(block.initialPosition || [], moves, block.boardSize);
     return {
       activeChunk,
       activeMove,
       moves,
+      stones: resolvedState.stones,
     };
   }
 
@@ -1143,6 +1264,8 @@ const BlueshellWeiqi = (() => {
     getCoordinateFromPointer,
     getPointKey,
     buildStoneMap,
+    applyMoveToStoneMap,
+    applyMoveSequence,
   };
 })();
 

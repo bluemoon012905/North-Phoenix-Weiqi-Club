@@ -374,6 +374,23 @@ button.danger:hover {
   margin-bottom: 18px;
 }
 
+.panel-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.panel-content {
+  display: grid;
+  gap: 14px;
+}
+
+.panel.is-collapsed .panel-content {
+  display: none;
+}
+
 .status-message {
   margin: 0;
 }

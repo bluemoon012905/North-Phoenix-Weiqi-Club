@@ -31,15 +31,28 @@
       </aside>
 
       <main class="editor-main">
-        <section class="panel">
+        <section class="panel" data-panel-id="homepage-copy">
           <div class="panel-head">
             <div>
               <p class="eyebrow">Site settings</p>
               <h2>Homepage copy</h2>
             </div>
-            <p id="status-message" class="status-message">Idle</p>
+            <div class="panel-head-actions">
+              <p id="status-message" class="status-message">Idle</p>
+              <button
+                id="toggle-homepage-copy-button"
+                type="button"
+                class="secondary-ink panel-toggle-button"
+                data-action="toggle-panel"
+                data-panel-id="homepage-copy"
+                aria-expanded="true"
+              >
+                Minimize
+              </button>
+            </div>
           </div>
-          <div class="form-grid site-grid">
+          <div class="panel-content">
+            <div class="form-grid site-grid">
             <label>
               <span>Site title</span>
               <input id="site-title" type="text" />
@@ -88,18 +101,33 @@
               <span>Editor description</span>
               <textarea id="editor-description" rows="3"></textarea>
             </label>
+            </div>
           </div>
         </section>
 
-        <section class="panel">
+        <section class="panel" data-panel-id="section-layout">
           <div class="panel-head">
             <div>
               <p class="eyebrow">Homepage panels</p>
               <h2>Section layout</h2>
             </div>
-            <button id="new-home-panel-button" type="button">Add homepage panel</button>
+            <div class="panel-head-actions">
+              <button
+                id="toggle-section-layout-button"
+                type="button"
+                class="secondary-ink panel-toggle-button"
+                data-action="toggle-panel"
+                data-panel-id="section-layout"
+                aria-expanded="true"
+              >
+                Minimize
+              </button>
+              <button id="new-home-panel-button" type="button">Add homepage panel</button>
+            </div>
           </div>
-          <div id="home-panel-fields" class="home-panel-fields"></div>
+          <div class="panel-content">
+            <div id="home-panel-fields" class="home-panel-fields"></div>
+          </div>
         </section>
 
         <section class="panel">
