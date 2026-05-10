@@ -713,7 +713,7 @@
       "boardSize": 19,
       "coordinateSystem": "zero-based",
       "caption": "Joseki: attach on approach",
-      "stackGroup": "",
+      "stackGroup": "stack-1778392527066",
       "initialPosition": [
         {
           "color": "black",
@@ -843,7 +843,7 @@
       "boardSize": 19,
       "coordinateSystem": "zero-based",
       "caption": "New Weiqi block",
-      "stackGroup": "",
+      "stackGroup": "stack-1778392527066",
       "initialPosition": [
         {
           "color": "black",
@@ -931,7 +931,7 @@
       "boardSize": 19,
       "coordinateSystem": "zero-based",
       "caption": "New Weiqi block",
-      "stackGroup": "",
+      "stackGroup": "stack-1778392527066",
       "initialPosition": [
         {
           "color": "black",
