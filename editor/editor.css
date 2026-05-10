@@ -578,7 +578,7 @@ button.danger:hover {
 
 .weiqi-board {
   width: min(100%, 520px);
-  aspect-ratio: 1 / 1;
+  aspect-ratio: var(--weiqi-board-aspect-ratio, 1 / 1);
 }
 
 .weiqi-board-svg {
@@ -817,12 +817,12 @@ button.danger:hover {
 }
 
 .weiqi-editor-overview-shell {
-  max-width: 260px;
+  max-width: 340px;
 }
 
 .weiqi-editor-overview-shell .weiqi-board {
   width: 100%;
-  max-width: 260px;
+  max-width: 340px;
 }
 
 .weiqi-editor-hint {
@@ -945,7 +945,7 @@ button.danger:hover {
 
   .weiqi-editor-overview-shell,
   .weiqi-editor-overview-shell .weiqi-board {
-    max-width: 240px;
+    max-width: 300px;
   }
 
 }

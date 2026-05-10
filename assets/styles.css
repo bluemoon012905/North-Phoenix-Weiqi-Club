@@ -892,6 +892,11 @@ textarea {
   position: relative;
 }
 
+.weiqi-stack-block {
+  display: grid;
+  gap: 0;
+}
+
 .weiqi-stack-nav {
   display: flex;
   flex-wrap: wrap;
@@ -974,7 +979,7 @@ textarea {
 
 .weiqi-board {
   width: min(100%, 620px);
-  aspect-ratio: 1 / 1;
+  aspect-ratio: var(--weiqi-board-aspect-ratio, 1 / 1);
 }
 
 .weiqi-board-svg {

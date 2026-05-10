@@ -19,7 +19,37 @@
       "mode": "static",
       "boardSize": 19,
       "coordinateSystem": "zero-based",
+      "caption": "New Weiqi block",
+      "stackGroup": "",
+      "initialPosition": [],
+      "markers": [],
+      "viewWindow": {
+        "xMin": 0,
+        "yMin": 0,
+        "xMax": 18,
+        "yMax": 18
+      },
+      "animationChunks": [
+        {
+          "id": "chunk-1",
+          "label": "Main line",
+          "caption": "",
+          "moves": []
+        }
+      ],
+      "successSequence": [],
+      "failureSequences": [],
+      "branches": [],
+      "defaultIncorrectMessage": "That move does not match an authored variation.",
+      "playerSide": "both"
+    },
+    {
+      "type": "weiqi",
+      "mode": "static",
+      "boardSize": 19,
+      "coordinateSystem": "zero-based",
       "caption": "Joseki: attach on approach",
+      "stackGroup": "",
       "initialPosition": [
         {
           "color": "black",
@@ -128,34 +158,6 @@
         "yMin": 0,
         "xMax": 18,
         "yMax": 10
-      },
-      "animationChunks": [
-        {
-          "id": "chunk-1",
-          "label": "Main line",
-          "caption": "",
-          "moves": []
-        }
-      ],
-      "successSequence": [],
-      "failureSequences": [],
-      "branches": [],
-      "defaultIncorrectMessage": "That move does not match an authored variation.",
-      "playerSide": "both"
-    },
-    {
-      "type": "weiqi",
-      "mode": "static",
-      "boardSize": 19,
-      "coordinateSystem": "zero-based",
-      "caption": "New Weiqi block",
-      "initialPosition": [],
-      "markers": [],
-      "viewWindow": {
-        "xMin": 0,
-        "yMin": 0,
-        "xMax": 18,
-        "yMax": 18
       },
       "animationChunks": [
         {

@@ -287,7 +287,9 @@ const BlueshellWeiqi = (() => {
             .map(
               (block, index) => `
                 <div class="weiqi-stack-page ${index === 0 ? "" : "hidden"}" data-weiqi-stack-page="${index}">
-                  ${renderWeiqiBlockInner(block)}
+                  <div class="weiqi-block weiqi-stack-block" data-weiqi-block="${escapeAttribute(JSON.stringify(block))}">
+                    ${renderWeiqiBlockInner(block)}
+                  </div>
                 </div>
               `
             )
@@ -311,7 +313,6 @@ const BlueshellWeiqi = (() => {
   }
 
   function renderWeiqiBlockInner(block) {
-    const payload = escapeAttribute(JSON.stringify(block));
     const modeLabel = escapeHtml(getModeLabel(block.mode));
     const caption = block.caption ? `<p class="weiqi-caption">${escapeHtml(block.caption)}</p>` : "";
     const prompt = block.mode === "puzzle" && block.prompt ? `<p class="weiqi-prompt">${escapeHtml(block.prompt)}</p>` : "";
@@ -334,7 +335,9 @@ const BlueshellWeiqi = (() => {
       <div class="weiqi-board-shell ${block.mode === "puzzle" ? "is-clickable" : ""}">
         <div class="weiqi-board" data-weiqi-board role="${block.mode === "puzzle" ? "button" : "img"}" aria-label="${escapeAttribute(
           getAriaLabel(block)
-        )}" tabindex="${block.mode === "puzzle" ? "0" : "-1"}"></div>
+        )}" tabindex="${block.mode === "puzzle" ? "0" : "-1"}" style="${escapeAttribute(
+          `--weiqi-board-aspect-ratio: ${getBoardAspectRatioValue(block.boardSize, block.viewWindow)};`
+        )}"></div>
       </div>
       ${dynamicCaption}
       ${controls}
@@ -699,6 +702,7 @@ const BlueshellWeiqi = (() => {
 
     const block = state.block;
     const boardState = getBoardStateForMode(state);
+    boardElement.style.setProperty("--weiqi-board-aspect-ratio", getBoardAspectRatioValue(block.boardSize, block.viewWindow));
     boardElement.innerHTML = buildBoardSvg(block, boardState.stones, boardState.markers, boardState.lastMove, {
       viewWindow: block.viewWindow,
     });
@@ -763,11 +767,11 @@ const BlueshellWeiqi = (() => {
     const gridLines = [];
     for (let x = effectiveViewWindow.xMin; x <= effectiveViewWindow.xMax; x += 1) {
       const { cx: offset } = getSvgPoint({ x, y: effectiveViewWindow.yMin }, effectiveViewWindow, metrics);
-      gridLines.push(`<line x1="${offset}" y1="${metrics.padding}" x2="${offset}" y2="${SVG_DIMENSION - metrics.padding}"></line>`);
+      gridLines.push(`<line x1="${offset}" y1="${metrics.padding}" x2="${offset}" y2="${metrics.height - metrics.padding}"></line>`);
     }
     for (let y = effectiveViewWindow.yMin; y <= effectiveViewWindow.yMax; y += 1) {
       const { cy: offset } = getSvgPoint({ x: effectiveViewWindow.xMin, y }, effectiveViewWindow, metrics);
-      gridLines.push(`<line x1="${metrics.padding}" y1="${offset}" x2="${SVG_DIMENSION - metrics.padding}" y2="${offset}"></line>`);
+      gridLines.push(`<line x1="${metrics.padding}" y1="${offset}" x2="${metrics.width - metrics.padding}" y2="${offset}"></line>`);
     }
 
     const starMarkup = getStarPoints(boardSize)
@@ -791,8 +795,8 @@ const BlueshellWeiqi = (() => {
       : "";
 
     return `
-      <svg class="weiqi-board-svg" viewBox="0 0 ${SVG_DIMENSION} ${SVG_DIMENSION}" aria-hidden="true">
-        <rect class="weiqi-board-wood" x="0" y="0" width="${SVG_DIMENSION}" height="${SVG_DIMENSION}" rx="18"></rect>
+      <svg class="weiqi-board-svg" viewBox="0 0 ${metrics.width} ${metrics.height}" aria-hidden="true">
+        <rect class="weiqi-board-wood" x="0" y="0" width="${metrics.width}" height="${metrics.height}" rx="18"></rect>
         <g class="weiqi-grid-lines">${gridLines.join("")}</g>
         <g class="weiqi-star-points">${starMarkup}</g>
         <g class="weiqi-stones">${stonesMarkup}</g>
@@ -845,17 +849,24 @@ const BlueshellWeiqi = (() => {
     const bottomInset = viewWindow.yMax === boardSize - 1 ? 0 : 0.5;
     const spanX = Math.max(1, viewWindow.xMax - viewWindow.xMin + leftInset + rightInset);
     const spanY = Math.max(1, viewWindow.yMax - viewWindow.yMin + topInset + bottomInset);
-    const span = SVG_DIMENSION - SVG_PADDING * 2;
+    const step = (SVG_DIMENSION - SVG_PADDING * 2) / Math.max(spanX, spanY);
     return {
       padding: SVG_PADDING,
-      stepX: span / spanX,
-      stepY: span / spanY,
+      stepX: step,
+      stepY: step,
+      width: SVG_PADDING * 2 + spanX * step,
+      height: SVG_PADDING * 2 + spanY * step,
       boardSize,
       leftInset,
       rightInset,
       topInset,
       bottomInset,
     };
+  }
+
+  function getBoardAspectRatioValue(boardSize, viewWindow) {
+    const metrics = getBoardMetrics(boardSize, normalizeViewWindow(boardSize, viewWindow));
+    return `${metrics.width} / ${metrics.height}`;
   }
 
   function getSvgPoint(point, viewWindow, metrics) {
@@ -978,8 +989,8 @@ const BlueshellWeiqi = (() => {
 
     const normalizedViewWindow = normalizeViewWindow(boardSize, viewWindow);
     const metrics = getBoardMetrics(boardSize, normalizedViewWindow);
-    const svgX = ((event.clientX - rect.left) / rect.width) * SVG_DIMENSION;
-    const svgY = ((event.clientY - rect.top) / rect.height) * SVG_DIMENSION;
+    const svgX = ((event.clientX - rect.left) / rect.width) * metrics.width;
+    const svgY = ((event.clientY - rect.top) / rect.height) * metrics.height;
     const x = Math.round((svgX - metrics.padding) / metrics.stepX - metrics.leftInset) + normalizedViewWindow.xMin;
     const y = Math.round((svgY - metrics.padding) / metrics.stepY - metrics.topInset) + normalizedViewWindow.yMin;
 
@@ -1128,6 +1139,7 @@ const BlueshellWeiqi = (() => {
     normalizePuzzleFailureSequences,
     normalizePuzzleBranches,
     buildBoardSvg,
+    getBoardAspectRatioValue,
     getCoordinateFromPointer,
     getPointKey,
     buildStoneMap,

@@ -96,7 +96,8 @@ Then open:
 ### Editor
 
 - `editor/index.html` defines the editor layout, site fields, homepage panel controls, and the post composer modal.
-- `editor/editor.js` owns editor state, loading/saving content, rendering form sections, post selection, autosave, and image upload actions.
+- `editor/editor.js` owns editor state, loading/saving content, rendering form sections, post selection, autosave, image upload actions, and delegates Weiqi editing tools to `editor/editor-weiqi-tools.js`.
+- `editor/editor-weiqi-tools.js` contains the Weiqi-specific validation, board editing, stacking, variation/branch editing, and viewport manipulation logic used by the editor.
 - `editor/editor-events.js` wires DOM events to the state-sync functions defined in `editor/editor.js`.
 - `editor/editor-helpers.js` contains editor-specific formatting and sanitizing helpers used by the composer and preview UI.
 - `editor/editor.css` styles the editor separately from the public site.
