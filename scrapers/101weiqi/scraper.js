@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+// Utility scraper for inspecting a 101weiqi page after authentication and saving debug artifacts.
 const fs = require("fs");
 const path = require("path");
 const readline = require("readline");
@@ -54,6 +55,7 @@ async function main() {
   const networkCaptures = [];
 
   page.on("response", async (response) => {
+    // Capture likely data-bearing responses so reverse-engineering a page is easier after the run.
     const url = response.url();
     if (!isInterestingResponse(url)) {
       return;
@@ -168,6 +170,7 @@ async function login(page, options) {
 }
 
 async function extractPageData(page, targetUrl) {
+  // Gather broad heuristics rather than assuming a single stable 101weiqi page structure.
   return page.evaluate((currentUrl) => {
     const visibleText = (node) => node && node.textContent ? node.textContent.replace(/\s+/g, " ").trim() : "";
     const textList = (selector, limit = 20) => Array.from(document.querySelectorAll(selector))

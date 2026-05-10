@@ -1,3 +1,4 @@
+// The contact page is a thin content-driven shell with a small copy-to-clipboard affordance.
 const { escapeHtml, escapeAttribute } = window.BlueshellContent;
 
 const contactElements = {

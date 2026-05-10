@@ -1,5 +1,7 @@
 const { escapeHtml, formatDate, renderPostBody, escapeAttribute, getSafeImageSource } = window.BlueshellContent;
 const { renderStructuredContentBlocks, init: initWeiqiContent } = window.BlueshellWeiqi;
+
+// Speech synthesis state is shared across the read-aloud controls for a single post page.
 const speechState = {
   supported: "speechSynthesis" in window && "SpeechSynthesisUtterance" in window,
   active: false,
@@ -100,6 +102,7 @@ async function loadPost() {
 
   initWeiqiContent(document.getElementById("post-shell"));
 
+  // Bind read-aloud after the post body exists so text extraction can use the rendered DOM.
   bindReadAloud(post);
 }
 
@@ -149,6 +152,7 @@ function bindReadAloud(post) {
 }
 
 function hydrateVoiceList(select) {
+  // Voice availability is browser-driven and may populate asynchronously after page load.
   const populateVoices = () => {
     const voices = window.speechSynthesis.getVoices();
     speechState.voices = voices;

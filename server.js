@@ -3,6 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const { URL } = require("url");
 
+// Local development server that serves the static site and exposes editor APIs.
 const rootDir = __dirname;
 const dataDir = path.join(rootDir, "data");
 const contentPath = path.join(dataDir, "content.json");
@@ -32,6 +33,7 @@ const mimeTypes = {
   ".webp": "image/webp",
 };
 
+// Keep routing simple: explicit API handlers first, then static files, then a homepage fallback.
 const server = http.createServer(async (request, response) => {
   const requestUrl = new URL(request.url, `http://${request.headers.host}`);
 
@@ -83,6 +85,7 @@ server.listen(port, host, () => {
 });
 
 function resolvePath(requestPath) {
+  // Normalize "/" to the homepage and reject any path that escapes the repo root.
   const decodedPath = decodeURIComponent(requestPath === "/" ? "/index.html" : requestPath);
   const fullPath = path.join(rootDir, decodedPath);
   if (!fullPath.startsWith(rootDir)) {
@@ -127,6 +130,7 @@ function readBody(request) {
 }
 
 function loadSplitContent() {
+  // `content.json` keeps shared site/category data while full posts live in `data/posts/`.
   const baseContent = readJsonFile(contentPath, { site: {}, categories: [], posts: [] });
   const inlinePosts = Array.isArray(baseContent.posts) ? baseContent.posts : [];
   const indexedPosts = readPostsFromDirectory();
@@ -178,6 +182,7 @@ function writeSplitContent(content) {
 
   fs.writeFileSync(postsIndexPath, `${JSON.stringify(postsIndex, null, 2)}\n`);
 
+  // Remove deleted post files so the split-on-disk model stays in sync with editor state.
   if (fs.existsSync(postsDir)) {
     fs.readdirSync(postsDir, { withFileTypes: true }).forEach((entry) => {
       if (!entry.isFile() || path.extname(entry.name).toLowerCase() !== ".json" || entry.name === "index.json") {

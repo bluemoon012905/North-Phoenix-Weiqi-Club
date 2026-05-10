@@ -32,9 +32,97 @@
           "x": 16,
           "y": 5,
           "markers": []
+        },
+        {
+          "color": "white",
+          "x": 15,
+          "y": 6,
+          "markers": []
+        },
+        {
+          "color": "black",
+          "x": 15,
+          "y": 5,
+          "markers": []
+        },
+        {
+          "color": "black",
+          "x": 14,
+          "y": 5,
+          "markers": []
+        },
+        {
+          "color": "white",
+          "x": 16,
+          "y": 4,
+          "markers": []
+        },
+        {
+          "color": "black",
+          "x": 16,
+          "y": 3,
+          "markers": []
+        },
+        {
+          "color": "white",
+          "x": 16,
+          "y": 7,
+          "markers": []
+        },
+        {
+          "color": "black",
+          "x": 13,
+          "y": 3,
+          "markers": []
         }
       ],
-      "markers": [],
+      "markers": [
+        {
+          "x": 15,
+          "y": 3,
+          "label": "1"
+        },
+        {
+          "x": 16,
+          "y": 5,
+          "label": "2"
+        },
+        {
+          "x": 15,
+          "y": 5,
+          "label": "3"
+        },
+        {
+          "x": 15,
+          "y": 6,
+          "label": "4"
+        },
+        {
+          "x": 14,
+          "y": 5,
+          "label": "5"
+        },
+        {
+          "x": 16,
+          "y": 4,
+          "label": "6"
+        },
+        {
+          "x": 16,
+          "y": 3,
+          "label": "7"
+        },
+        {
+          "x": 16,
+          "y": 7,
+          "label": "8"
+        },
+        {
+          "x": 13,
+          "y": 3,
+          "label": "9"
+        }
+      ],
       "viewWindow": {
         "xMin": 8,
         "yMin": 0,

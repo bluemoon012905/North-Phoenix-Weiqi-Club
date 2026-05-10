@@ -1,3 +1,4 @@
+// Centralized event wiring keeps the editor logic module focused on state transitions and rendering.
 fields.postSearch.addEventListener("input", (event) => {
   editorState.search = event.target.value;
   renderPostList();
@@ -66,6 +67,7 @@ fields.postBodyEditor.addEventListener("input", () => {
 });
 
 fields.postBodyEditor.addEventListener("paste", async (event) => {
+  // Treat pasted images like uploads so the editor does not leave blob URLs in saved content.
   const items = [...(event.clipboardData?.items || [])];
   const imageItem = items.find((item) => item.type.startsWith("image/"));
   if (!imageItem) {
@@ -174,11 +176,14 @@ fields.postList.addEventListener("click", (event) => {
     return;
   }
 
-  syncAllFields();
+  if (!trySyncAllFields("Fix the current post before switching")) {
+    return;
+  }
   selectPost(button.dataset.postId, { openComposer: true });
 });
 
 fields.contentBlockFields.addEventListener("input", (event) => {
+  // Re-render immediately when the block mode changes because the visible controls are mode-specific.
   if (event.target.matches('[data-weiqi-key="mode"]')) {
     if (syncStructuredContentBlocks({ throwOnError: false })) {
       renderContentBlockFields(getCurrentPost());
@@ -328,6 +333,7 @@ fields.contentBlockFields.addEventListener("click", (event) => {
 });
 
 fields.contentBlockFields.addEventListener("mousedown", (event) => {
+  // Prevent text selection while dragging the Weiqi viewport window in the overview board.
   const overviewBoard = event.target.closest("[data-overview-board]");
   const viewportHandle = event.target.closest("[data-viewport-handle]");
   const viewportOutline = event.target.closest(".weiqi-viewport-outline");
@@ -371,7 +377,9 @@ fields.newHomePanelButton.addEventListener("click", () => {
 });
 
 fields.openPostEditorButton.addEventListener("click", () => {
-  syncAllFields();
+  if (!trySyncAllFields("Fix the current post before opening the composer")) {
+    return;
+  }
   openComposer();
 });
 
@@ -389,7 +397,9 @@ fields.homePanelFields.addEventListener("click", (event) => {
 });
 
 fields.closePostEditorButton.addEventListener("click", () => {
-  syncAllFields();
+  if (!trySyncAllFields("Fix the current post before closing")) {
+    return;
+  }
   closeComposer();
 });
 
@@ -430,7 +440,9 @@ fields.saveCitationLinkButton.addEventListener("click", () => {
 });
 
 fields.postEditorBackdrop.addEventListener("click", () => {
-  syncAllFields();
+  if (!trySyncAllFields("Fix the current post before closing")) {
+    return;
+  }
   closeComposer();
 });
 
@@ -458,8 +470,9 @@ document.addEventListener("keydown", (event) => {
   }
 
   if (event.key === "Escape" && editorState.composerOpen) {
-    syncAllFields();
-    closeComposer();
+    if (trySyncAllFields("Fix the current post before closing")) {
+      closeComposer();
+    }
   }
 });
 
@@ -472,6 +485,7 @@ function markDirty() {
 }
 
 async function autoSaveChanges() {
+  // Autosave is intentionally conservative: only save when dirty and never overlap requests.
   if (!editorState.content || !editorState.hasUnsavedChanges || editorState.saveInFlight) {
     return;
   }

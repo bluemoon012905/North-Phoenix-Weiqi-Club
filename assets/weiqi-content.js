@@ -1,3 +1,4 @@
+// Client-side renderer/runtime for structured Weiqi content blocks used in posts and previews.
 const BlueshellWeiqi = (() => {
   const BOARD_SIZES = new Set([9, 13, 19]);
   const BLOCK_SELECTOR = "[data-weiqi-block]";
@@ -90,6 +91,7 @@ const BlueshellWeiqi = (() => {
   }
 
   function normalizeAnimationChunks(block) {
+    // Support both the current `animationChunks` shape and older variation-based content.
     if (Array.isArray(block.animationChunks) && block.animationChunks.length) {
       return block.animationChunks.map((chunk, index) => ({
         id: chunk.id || `chunk-${index + 1}`,
@@ -145,6 +147,7 @@ const BlueshellWeiqi = (() => {
   }
 
   function normalizePuzzleBranches(block) {
+    // Puzzle content has evolved over time, so accept authored branches and older success/failure shapes.
     if (Array.isArray(block.branches) && block.branches.length) {
       return block.branches.map((branch, index) => ({
         id: branch.id || `branch-${index + 1}`,
@@ -201,6 +204,7 @@ const BlueshellWeiqi = (() => {
         typeof block.defaultIncorrectMessage === "string" && block.defaultIncorrectMessage.trim()
           ? block.defaultIncorrectMessage
           : "That move does not match an authored variation.",
+      playerSide: block.playerSide === "black" ? "black" : block.playerSide === "white" ? "white" : "both",
     };
   }
 
@@ -299,6 +303,7 @@ const BlueshellWeiqi = (() => {
   }
 
   function init(root = document) {
+    // Re-initialization is expected because editor previews frequently replace innerHTML wholesale.
     root.querySelectorAll(BLOCK_SELECTOR).forEach((element) => {
       try {
         const block = normalizeWeiqiBlock(JSON.parse(element.dataset.weiqiBlock || "null"));
@@ -453,6 +458,18 @@ const BlueshellWeiqi = (() => {
       return;
     }
 
+    const playerSide = state.block.playerSide || "both";
+    const branches = state.block.branches || [];
+
+    // In single-side mode, silently ignore clicks when it is the opponent's turn.
+    if (playerSide !== "both" && branches.length > 0) {
+      const currentMatches = getMatchingPuzzleBranches(branches, state.appliedMoves);
+      const nextExpectedColor = currentMatches[0]?.moves?.[state.appliedMoves.length]?.color;
+      if (nextExpectedColor && nextExpectedColor !== playerSide) {
+        return;
+      }
+    }
+
     const coordinate = getCoordinateFromPointer(boardElement, state.block.boardSize, event, state.block.viewWindow);
     if (!coordinate) {
       return;
@@ -465,7 +482,6 @@ const BlueshellWeiqi = (() => {
       return;
     }
 
-    const branches = state.block.branches || [];
     if (!branches.length) {
       state.status = "This puzzle does not have any authored branches yet.";
       renderBlock(boardElement.closest(BLOCK_SELECTOR), state);
@@ -498,11 +514,42 @@ const BlueshellWeiqi = (() => {
         state.failed = true;
         state.status = terminalBranch.message || state.block.defaultIncorrectMessage || "That move does not solve the puzzle.";
       }
-    } else {
-      const remainingMatches = getMatchingPuzzleBranches(branches, state.appliedMoves);
-      state.status = `Move ${state.appliedMoves.length} accepted. ${remainingMatches.length} authored continuation${remainingMatches.length === 1 ? "" : "s"} remain.`;
+      renderBlock(boardElement.closest(BLOCK_SELECTOR), state);
+      return;
     }
 
+    // In single-side mode, auto-play the opponent's authored response.
+    if (playerSide !== "both") {
+      const opponentMoveIndex = state.appliedMoves.length;
+      const remainingBranches = getMatchingPuzzleBranches(branches, state.appliedMoves);
+      const opponentMove = remainingBranches[0]?.moves?.[opponentMoveIndex];
+
+      if (opponentMove && opponentMove.color !== playerSide) {
+        state.appliedMoves = [...state.appliedMoves, opponentMove];
+
+        const exactAfterOpponent = remainingBranches.filter((b) => b.moves.length === state.appliedMoves.length);
+        if (exactAfterOpponent.length) {
+          const terminalBranch = exactAfterOpponent[0];
+          if (terminalBranch.outcome === "correct") {
+            state.solved = true;
+            state.status = terminalBranch.message || "Solved.";
+          } else {
+            state.failed = true;
+            state.status = terminalBranch.message || state.block.defaultIncorrectMessage || "That move does not solve the puzzle.";
+          }
+          renderBlock(boardElement.closest(BLOCK_SELECTOR), state);
+          return;
+        }
+
+        const afterOpponentRemaining = getMatchingPuzzleBranches(branches, state.appliedMoves);
+        state.status = `Your move accepted. ${afterOpponentRemaining.length} continuation${afterOpponentRemaining.length === 1 ? "" : "s"} remain.`;
+        renderBlock(boardElement.closest(BLOCK_SELECTOR), state);
+        return;
+      }
+    }
+
+    const remainingMatches = getMatchingPuzzleBranches(branches, state.appliedMoves);
+    state.status = `Move ${state.appliedMoves.length} accepted. ${remainingMatches.length} authored continuation${remainingMatches.length === 1 ? "" : "s"} remain.`;
     renderBlock(boardElement.closest(BLOCK_SELECTOR), state);
   }
 
@@ -708,7 +755,9 @@ const BlueshellWeiqi = (() => {
   function renderMarker(marker, occupiedStone, context) {
     const { cx, cy } = getSvgPoint(marker, context.viewWindow, context);
     const textClass = occupiedStone?.color === "black" ? "on-black" : occupiedStone?.color === "white" ? "on-white" : "";
-    const label = marker.label ? `<text class="weiqi-marker-label ${textClass}" x="${cx}" y="${cy + 5}">${escapeHtml(marker.label)}</text>` : "";
+    const label = marker.label
+      ? `<text class="weiqi-marker-label ${textClass}" x="${cx}" y="${cy}" dominant-baseline="middle">${escapeHtml(marker.label)}</text>`
+      : "";
     const shape = renderMarkerShape(marker.shape, cx, cy, Math.min(context.stepX, context.stepY) * 0.32, occupiedStone?.color);
     return `<g class="weiqi-marker-group">${shape}${label}</g>`;
   }
@@ -819,6 +868,12 @@ const BlueshellWeiqi = (() => {
     }
 
     if (block.mode === "puzzle") {
+      if (block.playerSide === "black") {
+        return "Black to play. Click an intersection to make your move.";
+      }
+      if (block.playerSide === "white") {
+        return "White to play. Click an intersection to make your move.";
+      }
       return "Click an intersection to follow an authored branch.";
     }
 

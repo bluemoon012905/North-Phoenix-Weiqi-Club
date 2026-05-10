@@ -24,6 +24,7 @@ const {
   buildStoneMap,
 } = window.BlueshellWeiqi;
 
+// Shared constants keep the editor and runtime aligned on valid Weiqi authoring options.
 const WEIQI_BOARD_SIZES = [9, 13, 19];
 const WEIQI_STONE_COLORS = new Set(["black", "white"]);
 const WEIQI_MARKER_SHAPES = new Set(["", "circle", "square", "triangle", "cross"]);
@@ -45,6 +46,7 @@ const editorState = {
   weiqiViewportDrag: null,
 };
 
+// The editor mirrors built-in homepage panels but still allows custom panels to be appended.
 const AUTO_SAVE_INTERVAL_MS = 60_000;
 
 const BUILT_IN_HOME_PANELS = [
@@ -157,6 +159,7 @@ const fields = {
 };
 
 async function initEditor() {
+  // This UI writes back to local disk through the dev server, so block it outside localhost.
   if (!isLocalEnvironment) {
     document.body.innerHTML = `
       <main class="editor-main">
@@ -301,6 +304,7 @@ function populateCategorySelect(selectedValue = getCurrentPost()?.category || fi
 }
 
 function getDefaultWeiqiBlock(mode = "static") {
+  // New blocks start from a fully normalized shape so downstream renderers can assume fields exist.
   return normalizeWeiqiBlock({
     type: "weiqi",
     mode,
@@ -321,6 +325,7 @@ function getDefaultWeiqiBlock(mode = "static") {
             },
           ]
         : [],
+    playerSide: mode === "puzzle" ? "both" : undefined,
     prompt: mode === "puzzle" ? "Black to play. Find the best move." : "",
     branches:
       mode === "puzzle"
@@ -379,6 +384,7 @@ function renderContentBlockCard(block, index) {
   const sequencePanel = renderWeiqiSequencePanel(normalizedBlock, editorUiState, index);
   const collapsedMarkup = renderStructuredContentBlocks([normalizedBlock]);
 
+  // The expanded editor uses the same renderer as the public site for the collapsed preview.
   return `
     <section class="category-card content-block-card" data-weiqi-card>
       <div class="category-card-head">
@@ -419,6 +425,14 @@ function renderContentBlockCard(block, index) {
         <label class="full-width">
           <span>Caption</span>
           <input data-weiqi-key="caption" type="text" value="${escapeAttribute(normalizedBlock.caption || "")}" />
+        </label>
+        <label class="${normalizedBlock.mode === "puzzle" ? "" : "hidden"}" data-mode-section="puzzle">
+          <span>Player side</span>
+          <select data-weiqi-key="playerSide">
+            <option value="both" ${normalizedBlock.playerSide !== "black" && normalizedBlock.playerSide !== "white" ? "selected" : ""}>Both sides</option>
+            <option value="black" ${normalizedBlock.playerSide === "black" ? "selected" : ""}>Black to play</option>
+            <option value="white" ${normalizedBlock.playerSide === "white" ? "selected" : ""}>White to play</option>
+          </select>
         </label>
         <label class="full-width ${normalizedBlock.mode === "puzzle" ? "" : "hidden"}" data-mode-section="puzzle">
           <span>Prompt</span>
@@ -1281,7 +1295,7 @@ function validateStoneProgression(initialPosition, sequence, label) {
   });
 }
 
-function validatePuzzleBranches(initialPosition, branches, labelPrefix = "Puzzle branch") {
+function validatePuzzleBranches(initialPosition, branches, labelPrefix = "Puzzle branch", playerSide = "both") {
   const normalizedBranches = Array.isArray(branches) ? branches : [];
 
   normalizedBranches.forEach((branch, branchIndex) => {
@@ -1294,6 +1308,26 @@ function validatePuzzleBranches(initialPosition, branches, labelPrefix = "Puzzle
     if (branch.message != null && typeof branch.message !== "string") {
       throw new Error(`${labelPrefix} ${branchIndex + 1} message must be a string.`);
     }
+
+    if (playerSide !== "both" && Array.isArray(branch.moves) && branch.moves.length > 0) {
+      const branchLabel = branch.label || `${labelPrefix} ${branchIndex + 1}`;
+      const firstMove = branch.moves[0];
+      if (firstMove && firstMove.color !== playerSide) {
+        throw new Error(
+          `${branchLabel} starts with ${firstMove.color}, but player side is set to "${playerSide} to play". The first move must be ${playerSide}.`
+        );
+      }
+      const opponentSide = playerSide === "black" ? "white" : "black";
+      branch.moves.forEach((move, moveIndex) => {
+        const expectedColor = moveIndex % 2 === 0 ? playerSide : opponentSide;
+        if (move.color !== expectedColor) {
+          throw new Error(
+            `${branchLabel} move ${moveIndex + 1} should be ${expectedColor} (player side: ${playerSide}), but is ${move.color}.`
+          );
+        }
+      });
+    }
+
     validateStoneProgression(initialPosition, branch.moves || [], branch.label || `${labelPrefix} ${branchIndex + 1}`);
   });
 
@@ -1379,11 +1413,13 @@ function collectContentBlockFromCard(card, index) {
   }
 
   if (mode === "puzzle") {
+    const rawPlayerSide = card.querySelector('[data-weiqi-key="playerSide"]')?.value || "both";
+    block.playerSide = rawPlayerSide === "black" ? "black" : rawPlayerSide === "white" ? "white" : "both";
     block.prompt = card.querySelector('[data-weiqi-key="prompt"]').value.trim();
     block.branches = normalizePuzzleBranches({
       branches: JSON.parse(card.querySelector('[data-weiqi-key="branches"]').value || "[]"),
     });
-    validatePuzzleBranches(block.initialPosition, block.branches);
+    validatePuzzleBranches(block.initialPosition, block.branches, "Puzzle branch", block.playerSide);
     block.defaultIncorrectMessage = card.querySelector('[data-weiqi-key="defaultIncorrectMessage"]').value.trim();
     block.explanation = card.querySelector('[data-weiqi-key="explanation"]').value.trim();
   }
@@ -2130,8 +2166,20 @@ function syncAllFields() {
   populateCategorySelect(getCurrentPost()?.category);
 }
 
+function trySyncAllFields(statusPrefix = "Could not apply editor changes") {
+  try {
+    syncAllFields();
+    return true;
+  } catch (error) {
+    setStatus(`${statusPrefix}: ${error.message}`);
+    return false;
+  }
+}
+
 function createPost() {
-  syncAllFields();
+  if (!trySyncAllFields("Fix the current post before creating another")) {
+    return;
+  }
   const baseId = "new-post";
   let suffix = 1;
   let nextId = baseId;
@@ -2210,7 +2258,9 @@ async function saveAllChanges() {
 }
 
 function exportBackup() {
-  syncAllFields();
+  if (!trySyncAllFields("Fix the current post before exporting")) {
+    return;
+  }
   const blob = new Blob([JSON.stringify(editorState.content, null, 2)], {
     type: "application/json",
   });
@@ -2277,7 +2327,7 @@ function validateBeforeSave() {
         validateStoneProgression([...((normalizedBlock.initialPosition || [])), ...priorAnimationMoves], chunk.moves || [], chunk.label);
         priorAnimationMoves = [...priorAnimationMoves, ...(chunk.moves || [])];
       });
-      validatePuzzleBranches(normalizedBlock.initialPosition || [], normalizedBlock.branches || []);
+      validatePuzzleBranches(normalizedBlock.initialPosition || [], normalizedBlock.branches || [], "Puzzle branch", normalizedBlock.playerSide || "both");
 
       (normalizedBlock.markers || []).forEach((marker, markerIndex) => {
         assertCoordinateInBounds(marker.x, marker.y, Number(normalizedBlock.boardSize), `marker ${markerIndex + 1}`);

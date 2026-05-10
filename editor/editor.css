@@ -660,6 +660,7 @@ button.danger:hover {
   font-weight: 700;
   fill: rgba(16, 26, 40, 0.9);
   text-anchor: middle;
+  dominant-baseline: middle;
 }
 
 .weiqi-controls {

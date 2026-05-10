@@ -1,3 +1,4 @@
+// Category pages are resolved entirely from the query string plus the shared content index.
 const categoryHelpers = window.BlueshellContent;
 
 loadCategory().catch((error) => {
@@ -86,6 +87,7 @@ function renderPostCard(post, categoryName) {
 }
 
 function renderCategoryHeroDecoration(categoryId) {
+  // A few categories get lightweight art direction without adding category-specific templates.
   if (categoryId === "tutorial") {
     return `
       <div class="category-hero-decoration" aria-hidden="true">

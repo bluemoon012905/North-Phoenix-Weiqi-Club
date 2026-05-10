@@ -10,6 +10,7 @@ const {
   getSafeImageSource,
 } = window.BlueshellContent;
 
+// Homepage state covers content plus a few purely presentational hero interactions.
 const state = {
   content: null,
   search: "",
@@ -55,6 +56,7 @@ const elements = {
 };
 
 async function loadContent() {
+  // Render chrome that does not depend on content first so the page feels responsive on boot.
   applyDeviceMode();
   window.BlueshellContent.initLocalDebugPanels();
   renderTopBanner();
@@ -101,6 +103,7 @@ async function initializeTurtleAppearance() {
 }
 
 async function discoverTurtleVariants() {
+  // Fall back to the built-in list when the local asset API is unavailable on static hosting.
   try {
     const response = await fetch("/api/image-assets", { cache: "no-store" });
     if (!response.ok) {
@@ -215,6 +218,7 @@ function renderHero() {
 }
 
 function renderTopBanner() {
+  // The editor link only exists on a local run; production pages should not advertise it.
   const banner = document.querySelector(".top-banner");
   if (!banner) {
     return;
@@ -255,6 +259,7 @@ function bindHeroCarousel() {
     return;
   }
 
+  // The carousel layout is scroll-based, so we derive active state from the current scroll position.
   const syncTrackHeight = () => {
     const slideWidth = track.clientWidth || 1;
     const nextIndex = Math.max(0, Math.min(slides.length - 1, Math.round(track.scrollLeft / slideWidth)));
