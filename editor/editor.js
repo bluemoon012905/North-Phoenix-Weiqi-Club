@@ -1305,27 +1305,46 @@ function beginContentBlockDrag(blockIndex) {
   editorState.contentBlockDrag = {
     sourceIndex: blockIndex,
     targetIndex: null,
+    targetSide: null,
   };
   const sourceCard = fields.contentBlockFields.querySelector(`.content-block-card[data-content-block-card-index="${blockIndex}"]`);
   sourceCard?.classList.add("is-drag-source");
 }
 
-function setContentBlockDropTarget(targetIndex) {
-  editorState.contentBlockDrag = editorState.contentBlockDrag || { sourceIndex: null, targetIndex: null };
+function getContentBlockDropTargetFromPointer(card, event) {
+  const rect = card.getBoundingClientRect();
+  const pointerY = event.clientY - rect.top;
+  const edgeBand = Math.max(44, Math.min(rect.height * 0.4, 120));
+  if (pointerY <= edgeBand) {
+    return "before";
+  }
+  if (pointerY >= rect.height - edgeBand) {
+    return "after";
+  }
+  return pointerY < rect.height / 2 ? "before" : "after";
+}
+
+function setContentBlockDropTarget(targetIndex, targetSide) {
+  editorState.contentBlockDrag = editorState.contentBlockDrag || { sourceIndex: null, targetIndex: null, targetSide: null };
   editorState.contentBlockDrag.targetIndex = targetIndex;
+  editorState.contentBlockDrag.targetSide = targetSide;
   fields.contentBlockFields.querySelectorAll(".content-block-card").forEach((card) => {
     const cardIndex = Number(card.dataset.contentBlockCardIndex);
-    card.classList.toggle("is-drop-target", cardIndex === targetIndex);
+    const isTarget = cardIndex === targetIndex;
+    card.classList.toggle("is-drop-target", isTarget);
+    card.classList.toggle("is-drop-before", isTarget && targetSide === "before");
+    card.classList.toggle("is-drop-after", isTarget && targetSide === "after");
     card.classList.toggle("is-drag-source", cardIndex === editorState.contentBlockDrag.sourceIndex);
   });
 }
 
 function clearContentBlockDropTarget() {
   fields.contentBlockFields.querySelectorAll(".content-block-card").forEach((card) => {
-    card.classList.remove("is-drop-target", "is-drag-source");
+    card.classList.remove("is-drop-target", "is-drop-before", "is-drop-after", "is-drag-source");
   });
   if (editorState.contentBlockDrag) {
     editorState.contentBlockDrag.targetIndex = null;
+    editorState.contentBlockDrag.targetSide = null;
   }
 }
 

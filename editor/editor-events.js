@@ -381,15 +381,12 @@ fields.contentBlockFields.addEventListener("dragover", (event) => {
   }
 
   const targetIndex = Number(card.dataset.contentBlockCardIndex);
-  if (targetIndex === editorState.contentBlockDrag.sourceIndex) {
-    return;
-  }
-
   event.preventDefault();
   if (event.dataTransfer) {
     event.dataTransfer.dropEffect = "move";
   }
-  setContentBlockDropTarget(targetIndex);
+  const targetSide = getContentBlockDropTargetFromPointer(card, event);
+  setContentBlockDropTarget(targetIndex, targetSide);
 });
 
 fields.contentBlockFields.addEventListener("dragleave", (event) => {
@@ -405,8 +402,9 @@ fields.contentBlockFields.addEventListener("dragleave", (event) => {
 
   const targetIndex = Number(card.dataset.contentBlockCardIndex);
   if (editorState.contentBlockDrag.targetIndex === targetIndex) {
-    card.classList.remove("is-drop-target");
+    card.classList.remove("is-drop-target", "is-drop-before", "is-drop-after");
     editorState.contentBlockDrag.targetIndex = null;
+    editorState.contentBlockDrag.targetSide = null;
   }
 });
 
@@ -418,14 +416,31 @@ fields.contentBlockFields.addEventListener("drop", (event) => {
 
   event.preventDefault();
   const sourceIndex = editorState.contentBlockDrag.sourceIndex;
-  const targetIndex = Number(card.dataset.contentBlockCardIndex);
+  const hoveredTargetIndex = Number(card.dataset.contentBlockCardIndex);
+  const targetIndex = Number.isInteger(editorState.contentBlockDrag.targetIndex)
+    ? editorState.contentBlockDrag.targetIndex
+    : hoveredTargetIndex;
+  const targetSide = editorState.contentBlockDrag.targetSide || getContentBlockDropTargetFromPointer(card, event);
   endContentBlockDrag();
 
-  if (!Number.isInteger(sourceIndex) || sourceIndex === targetIndex) {
+  if (!Number.isInteger(sourceIndex) || !Number.isInteger(targetIndex)) {
     return;
   }
 
-  const result = moveContentBlock(sourceIndex, targetIndex);
+  const insertionIndex =
+    targetSide === "after"
+      ? sourceIndex < targetIndex
+        ? targetIndex
+        : targetIndex + 1
+      : sourceIndex < targetIndex
+        ? targetIndex - 1
+        : targetIndex;
+
+  if (sourceIndex === insertionIndex) {
+    return;
+  }
+
+  const result = moveContentBlock(sourceIndex, insertionIndex);
   if (!result) {
     return;
   }

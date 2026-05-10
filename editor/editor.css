@@ -726,6 +726,7 @@ button.danger:hover {
 
 .content-block-card {
   padding: 20px;
+  position: relative;
   transition:
     transform 180ms ease,
     box-shadow 180ms ease;
@@ -746,10 +747,30 @@ button.danger:hover {
 }
 
 .content-block-card.is-drop-target {
-  transform: translateY(-4px);
   box-shadow:
     0 0 0 3px rgba(33, 93, 143, 0.22),
     var(--shadow);
+}
+
+.content-block-card.is-drop-before::before,
+.content-block-card.is-drop-after::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  height: 14px;
+  border-radius: 999px;
+  background: rgba(33, 93, 143, 0.2);
+  box-shadow: 0 0 0 2px rgba(33, 93, 143, 0.3);
+  pointer-events: none;
+}
+
+.content-block-card.is-drop-before::before {
+  top: 8px;
+}
+
+.content-block-card.is-drop-after::after {
+  bottom: 8px;
 }
 
 .weiqi-editor-collapsed .post-structured-content {
