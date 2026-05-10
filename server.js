@@ -168,19 +168,21 @@ function writeSplitContent(content) {
     site: content.site,
     categories: content.categories,
   };
-  fs.writeFileSync(contentPath, `${JSON.stringify(siteContent, null, 2)}\n`);
+  writeJsonFileAtomic(contentPath, siteContent);
 
   const nextPostIds = new Set();
   const postsIndex = {
     posts: content.posts.map((post) => {
       nextPostIds.add(post.id);
       const postPath = path.join(postsDir, `${post.id}.json`);
-      fs.writeFileSync(postPath, `${JSON.stringify(post, null, 2)}\n`);
+      writeJsonFileAtomic(postPath, post);
       return buildPostIndexEntry(post);
     }),
   };
 
-  fs.writeFileSync(postsIndexPath, `${JSON.stringify(postsIndex, null, 2)}\n`);
+  // Update the index after post payloads land so readers never see index entries
+  // for posts whose files have not been committed yet.
+  writeJsonFileAtomic(postsIndexPath, postsIndex);
 
   // Remove deleted post files so the split-on-disk model stays in sync with editor state.
   if (fs.existsSync(postsDir)) {
@@ -218,6 +220,29 @@ function readJsonFile(filePath, fallback) {
   }
 
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
+}
+
+function writeJsonFileAtomic(filePath, payload) {
+  writeFileAtomic(filePath, `${JSON.stringify(payload, null, 2)}\n`);
+}
+
+function writeFileAtomic(filePath, data) {
+  const directory = path.dirname(filePath);
+  const tempPath = path.join(
+    directory,
+    `.${path.basename(filePath)}.${process.pid}.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`
+  );
+
+  fs.mkdirSync(directory, { recursive: true });
+  try {
+    fs.writeFileSync(tempPath, data);
+    fs.renameSync(tempPath, filePath);
+  } catch (error) {
+    if (fs.existsSync(tempPath)) {
+      fs.unlinkSync(tempPath);
+    }
+    throw error;
+  }
 }
 
 function validateContent(content) {
@@ -582,7 +607,7 @@ async function saveImageAsset(request, response) {
 
     const finalName = getUniqueUploadName(targetDir, parsedUpload.filename);
     const filePath = path.join(targetDir, finalName);
-    fs.writeFileSync(filePath, parsedUpload.buffer);
+    writeFileAtomic(filePath, parsedUpload.buffer);
 
     sendJson(response, 200, {
       ok: true,

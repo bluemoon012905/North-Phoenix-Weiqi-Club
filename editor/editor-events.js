@@ -267,6 +267,10 @@ fields.contentBlockFields.addEventListener("click", (event) => {
         setWeiqiEditorMarkerMode(blockIndex, actionButton.dataset.editorMarkerMode);
         return;
       }
+      if (actionButton.dataset.action === "toggle-editor-overview") {
+        toggleWeiqiEditorOverview(blockIndex);
+        return;
+      }
       if (actionButton.dataset.action === "add-animation-chunk") {
         addAnimatedVariation(blockIndex);
         return;

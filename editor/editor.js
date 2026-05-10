@@ -578,6 +578,32 @@ function renderContentBlockCard(block, index) {
             }
           </div>
           <div class="weiqi-editor-board-grid">
+            <div class="weiqi-editor-overview-panel ${editorUiState.showOverview ? "" : "is-collapsed"}">
+              <div class="weiqi-editor-overview-head">
+                <p class="structured-block-label">Zoom window</p>
+                <button type="button" class="secondary-ink" data-action="toggle-editor-overview" data-content-block-index="${index}" aria-expanded="${editorUiState.showOverview ? "true" : "false"}">${editorUiState.showOverview ? "Hide zoom window" : "Show zoom window"}</button>
+              </div>
+              ${
+                editorUiState.showOverview
+                  ? `
+                    <div class="weiqi-board-shell weiqi-editor-overview-shell">
+                      <div class="weiqi-board" data-overview-board data-content-block-index="${index}">${buildBoardSvg(
+                        normalizedBlock,
+                        boardData.allStones,
+                        normalizedBlock.markers || [],
+                        boardData.lastMove,
+                        {
+                          cropToFullBoard: true,
+                          viewportOutline: normalizedBlock.viewWindow,
+                          viewportHandles: true,
+                        }
+                      )}</div>
+                    </div>
+                    <p class="weiqi-editor-hint">Drag the crop box to move it. Drag any corner dot to resize it into a rectangular crop.</p>
+                  `
+                  : ""
+              }
+            </div>
             <div class="weiqi-editor-board-panel">
               <div class="weiqi-board-shell is-clickable weiqi-editor-board-shell">
                 <div class="weiqi-board" data-editor-board data-content-block-index="${index}" style="--weiqi-board-aspect-ratio: ${escapeAttribute(
@@ -591,23 +617,6 @@ function renderContentBlockCard(block, index) {
                 )}</div>
               </div>
               <p class="weiqi-editor-hint">${escapeHtml(getWeiqiEditorHint(normalizedBlock, editorUiState, activeSequence))}</p>
-            </div>
-            <div class="weiqi-editor-overview-panel">
-              <p class="structured-block-label">Zoom window</p>
-              <div class="weiqi-board-shell weiqi-editor-overview-shell">
-                <div class="weiqi-board" data-overview-board data-content-block-index="${index}">${buildBoardSvg(
-                  normalizedBlock,
-                  boardData.allStones,
-                  normalizedBlock.markers || [],
-                  boardData.lastMove,
-                  {
-                    cropToFullBoard: true,
-                    viewportOutline: normalizedBlock.viewWindow,
-                    viewportHandles: true,
-                  }
-                )}</div>
-              </div>
-              <p class="weiqi-editor-hint">Drag the crop box to move it. Drag any corner dot to resize it into a rectangular crop.</p>
             </div>
           </div>
         </div>
@@ -643,6 +652,7 @@ function getWeiqiEditorState(blockIndex, block) {
   if (!editorState.weiqiEditors[key]) {
     editorState.weiqiEditors[key] = {
       isOpen: false,
+      showOverview: true,
       layer: block.mode === "animated" ? "variation" : block.mode === "puzzle" ? "branch" : "initial",
       tool: block.mode === "static" ? "alternate" : "black",
       markerMode: "label-alpha",
@@ -1284,6 +1294,10 @@ function setWeiqiEditorTool(blockIndex, tool) {
 
 function setWeiqiEditorMarkerMode(blockIndex, markerMode) {
   return weiqiTools.setWeiqiEditorMarkerMode(blockIndex, markerMode);
+}
+
+function toggleWeiqiEditorOverview(blockIndex) {
+  return weiqiTools.toggleWeiqiEditorOverview(blockIndex);
 }
 
 function beginContentBlockDrag(blockIndex) {

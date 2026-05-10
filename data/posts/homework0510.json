@@ -24,10 +24,10 @@
       "initialPosition": [],
       "markers": [],
       "viewWindow": {
-        "xMin": 0,
+        "xMin": 11,
         "yMin": 0,
         "xMax": 18,
-        "yMax": 18
+        "yMax": 6
       },
       "animationChunks": [
         {

@@ -807,6 +807,18 @@ button.danger:hover {
   gap: 10px;
 }
 
+.weiqi-editor-overview-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.weiqi-editor-overview-head .structured-block-label {
+  margin-bottom: 0;
+}
+
 .weiqi-editor-board-shell {
   max-width: 100%;
 }
@@ -832,6 +844,10 @@ button.danger:hover {
 
 .weiqi-editor-overview-panel {
   justify-items: start;
+}
+
+.weiqi-editor-overview-panel.is-collapsed {
+  gap: 0;
 }
 
 .weiqi-marker-controls {

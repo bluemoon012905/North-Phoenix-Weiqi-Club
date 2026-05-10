@@ -675,6 +675,18 @@
     renderContentBlockFields(post);
   }
 
+  function toggleWeiqiEditorOverview(blockIndex) {
+    const { getCurrentPost, getWeiqiEditorState, renderContentBlockFields } = getEnv();
+    const post = getCurrentPost();
+    const block = normalizeWeiqiBlock(post?.contentBlocks?.[blockIndex]);
+    if (!block) {
+      return;
+    }
+    const state = getWeiqiEditorState(blockIndex, block);
+    state.showOverview = !state.showOverview;
+    renderContentBlockFields(post);
+  }
+
   function moveContentBlock(fromIndex, toIndex) {
     const { getCurrentPost, renderContentBlockFields, renderPostPreview, markDirty, setStatus } = getEnv();
     const post = getCurrentPost();
@@ -1077,6 +1089,7 @@
     setWeiqiEditorOpen,
     setWeiqiEditorTool,
     setWeiqiEditorMarkerMode,
+    toggleWeiqiEditorOverview,
     moveContentBlock,
     stackWeiqiBlocks,
     unstackWeiqiBlock,
