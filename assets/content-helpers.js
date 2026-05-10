@@ -1,3 +1,4 @@
+// Shared browser helpers used by the public pages.
 const BlueshellContent = {
   isLocalEnvironment: ["localhost", "127.0.0.1", ""].includes(window.location.hostname),
   DEFAULT_HOME_PANELS: [
@@ -26,6 +27,45 @@ const BlueshellContent = {
       enabled: true,
     },
   ],
+
+  getDataUrl(basePath = "", relativePath = "") {
+    const normalizedBase = basePath ? basePath.replace(/\/?$/, "/") : "";
+    return `${normalizedBase}${relativePath}`;
+  },
+
+  async fetchJson(path) {
+    const response = await fetch(path, { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(`Could not load ${path}.`);
+    }
+
+    return response.json();
+  },
+
+  async loadContentIndex(basePath = "") {
+    // Listing pages only need the lightweight post index; full post bodies are lazy-loaded later.
+    const [content, postsIndexPayload] = await Promise.all([
+      BlueshellContent.fetchJson(BlueshellContent.getDataUrl(basePath, "data/content.json")),
+      BlueshellContent.fetchJson(BlueshellContent.getDataUrl(basePath, "data/posts/index.json")).catch(() => ({ posts: [] })),
+    ]);
+
+    const posts = Array.isArray(postsIndexPayload?.posts)
+      ? postsIndexPayload.posts
+      : Array.isArray(postsIndexPayload)
+        ? postsIndexPayload
+        : Array.isArray(content.posts)
+          ? content.posts
+          : [];
+
+    return {
+      ...content,
+      posts,
+    };
+  },
+
+  async loadPostById(postId, basePath = "") {
+    return BlueshellContent.fetchJson(BlueshellContent.getDataUrl(basePath, `data/posts/${encodeURIComponent(postId)}.json`));
+  },
 
   ensureHomePanels(content, defaults = null) {
     const basePanels = defaults || BlueshellContent.DEFAULT_HOME_PANELS;
@@ -56,6 +96,7 @@ const BlueshellContent = {
   },
 
   renderMarkdown(markdown) {
+    // The site only supports a small Markdown subset, so keep the renderer intentionally narrow.
     const lines = markdown.split("\n");
     const fragments = [];
     let listItems = [];
@@ -117,6 +158,7 @@ const BlueshellContent = {
   },
 
   sanitizeRichHtml(html) {
+    // Rich HTML comes from editor-authored content, so strip scriptable tags and unsafe attributes.
     const template = document.createElement("template");
     template.innerHTML = html;
     const disallowedTags = new Set(["script", "style", "iframe", "object", "embed", "meta", "link"]);
