@@ -653,6 +653,7 @@ function getWeiqiEditorState(blockIndex, block) {
     editorState.weiqiEditors[key] = {
       isOpen: false,
       showOverview: true,
+      mode: block.mode,
       layer: block.mode === "animated" ? "variation" : block.mode === "puzzle" ? "branch" : "initial",
       tool: block.mode === "static" ? "alternate" : "black",
       markerMode: "label-alpha",
@@ -663,11 +664,22 @@ function getWeiqiEditorState(blockIndex, block) {
   }
 
   const state = editorState.weiqiEditors[key];
+  if (state.mode !== block.mode) {
+    state.mode = block.mode;
+    state.layer = block.mode === "animated" ? "variation" : block.mode === "puzzle" ? "branch" : "initial";
+    state.tool = block.mode === "static" ? "alternate" : "black";
+    state.selectedChunkIndex = 0;
+    state.selectedMoveIndex = 0;
+    state.selectedBranchIndex = 0;
+  }
   if (block.mode === "static" && state.layer === "variation") {
     state.layer = "initial";
   }
   if (block.mode !== "puzzle" && state.layer === "branch") {
     state.layer = block.mode === "animated" ? "variation" : "initial";
+  }
+  if (block.mode === "puzzle") {
+    state.selectedBranchIndex = Math.max(0, Math.min(state.selectedBranchIndex || 0, Math.max(0, (block.branches || []).length - 1)));
   }
   if (block.mode !== "animated") {
     state.selectedMoveIndex = 0;

@@ -220,6 +220,23 @@
     });
   }
 
+  function createDefaultPuzzleBranch(index = 0) {
+    return {
+      id: `branch-${index + 1}`,
+      label: `Branch ${index + 1}`,
+      moves: [],
+      outcome: "correct",
+      message: "",
+    };
+  }
+
+  function ensureEditablePuzzleBranches(branches) {
+    if (Array.isArray(branches) && branches.length) {
+      return branches;
+    }
+    return [createDefaultPuzzleBranch(0)];
+  }
+
   function collectContentBlockFromCard(card, index) {
     const rawBlockField = card.querySelector("[data-raw-block]");
     if (rawBlockField) {
@@ -269,10 +286,12 @@
     if (mode === "puzzle") {
       const rawPlayerSide = card.querySelector('[data-weiqi-key="playerSide"]')?.value || "both";
       block.playerSide = rawPlayerSide === "black" ? "black" : rawPlayerSide === "white" ? "white" : "both";
-      block.prompt = card.querySelector('[data-weiqi-key="prompt"]').value.trim();
-      block.branches = normalizePuzzleBranches({
-        branches: JSON.parse(card.querySelector('[data-weiqi-key="branches"]').value || "[]"),
-      });
+      block.prompt = card.querySelector('[data-weiqi-key="prompt"]').value.trim() || "Black to play. Find the best move.";
+      block.branches = ensureEditablePuzzleBranches(
+        normalizePuzzleBranches({
+          branches: JSON.parse(card.querySelector('[data-weiqi-key="branches"]').value || "[]"),
+        })
+      );
       validatePuzzleBranches(block.initialPosition, block.branches, "Puzzle branch", block.playerSide, {
         allowIncompletePrefixOverlap: true,
       });
@@ -627,7 +646,8 @@
     const { getCurrentPost, getWeiqiEditorState, renderContentBlockFields } = getEnv();
     const post = getCurrentPost();
     const block = normalizeWeiqiBlock(post?.contentBlocks?.[blockIndex]);
-    if (!block || !WEIQI_MARKER_MODES.has(markerMode)) {
+    const validLayers = new Set(["initial", "variation", "branch", "markers"]);
+    if (!block || !validLayers.has(layer)) {
       return;
     }
     getWeiqiEditorState(blockIndex, block).layer = layer;
