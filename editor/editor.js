@@ -22,8 +22,7 @@ const {
   buildBoardSvg,
   getBoardAspectRatioValue,
   getCoordinateFromPointer: getWeiqiCoordinateFromPointer,
-  getPointKey,
-  buildStoneMap,
+  applyMoveSequence,
 } = window.BlueshellWeiqi;
 const weiqiTools = window.BlueshellEditorWeiqiTools;
 const {
@@ -929,16 +928,16 @@ function getEditorBoardData(block, editorUiState) {
 
   if (editorUiState.layer === "variation" && previewSequence) {
     const playbackState = getAnimatedEditorPlaybackState(block, editorUiState);
-    allStones = [...(block.initialPosition || []), ...playbackState.moves];
+    allStones = playbackState.stones;
     lastMove = playbackState.lastMove;
     overlayMarkers = [...(block.markers || []), ...buildSequenceMarkers(previewSequence?.moves || []), ...(playbackState.activeMove?.markers || [])];
   } else if (editorUiState.layer === "branch" && previewSequence) {
-    allStones.push(...previewSequence.moves);
+    allStones = applyMoveSequence(block.initialPosition || [], previewSequence.moves || [], block.boardSize).stones;
     lastMove = previewSequence.moves[previewSequence.moves.length - 1] || null;
     overlayMarkers = [...(block.markers || []), ...buildSequenceMarkers(previewSequence?.moves || [])];
   } else if (editorUiState.layer === "markers" && block.mode === "animated") {
     const playbackState = getAnimatedEditorPlaybackState(block, editorUiState);
-    allStones = [...(block.initialPosition || []), ...playbackState.moves];
+    allStones = playbackState.stones;
     lastMove = playbackState.lastMove;
     overlayMarkers = [...(block.markers || []), ...(playbackState.activeMove?.markers || [])];
   } else {
@@ -981,8 +980,10 @@ function getAnimatedEditorPlaybackState(block, editorUiState) {
 
   const activeChunk = chunks[selectedChunkIndex] || null;
   const activeMove = activeChunk && selectedMoveIndex > 0 ? activeChunk.moves[selectedMoveIndex - 1] || null : null;
+  const resolvedState = applyMoveSequence(block.initialPosition || [], moves, block.boardSize);
   return {
     moves,
+    stones: resolvedState.stones,
     activeMove,
     lastMove: activeMove || moves[moves.length - 1] || null,
   };
@@ -1355,14 +1356,14 @@ function beginContentBlockDrag(blockIndex) {
 function getContentBlockDropTargetFromPointer(card, event) {
   const rect = card.getBoundingClientRect();
   const pointerY = event.clientY - rect.top;
-  const edgeBand = Math.max(44, Math.min(rect.height * 0.4, 120));
+  const edgeBand = Math.max(44, Math.min(rect.height * 0.28, 96));
   if (pointerY <= edgeBand) {
     return "before";
   }
   if (pointerY >= rect.height - edgeBand) {
     return "after";
   }
-  return pointerY < rect.height / 2 ? "before" : "after";
+  return "stack";
 }
 
 function setContentBlockDropTarget(targetIndex, targetSide) {
@@ -1374,6 +1375,7 @@ function setContentBlockDropTarget(targetIndex, targetSide) {
     const isTarget = cardIndex === targetIndex;
     card.classList.toggle("is-drop-target", isTarget);
     card.classList.toggle("is-drop-before", isTarget && targetSide === "before");
+    card.classList.toggle("is-drop-stack", isTarget && targetSide === "stack");
     card.classList.toggle("is-drop-after", isTarget && targetSide === "after");
     card.classList.toggle("is-drag-source", cardIndex === editorState.contentBlockDrag.sourceIndex);
   });
@@ -1381,7 +1383,7 @@ function setContentBlockDropTarget(targetIndex, targetSide) {
 
 function clearContentBlockDropTarget() {
   fields.contentBlockFields.querySelectorAll(".content-block-card").forEach((card) => {
-    card.classList.remove("is-drop-target", "is-drop-before", "is-drop-after", "is-drag-source");
+    card.classList.remove("is-drop-target", "is-drop-before", "is-drop-stack", "is-drop-after", "is-drag-source");
   });
   if (editorState.contentBlockDrag) {
     editorState.contentBlockDrag.targetIndex = null;
@@ -1744,12 +1746,18 @@ function validateBeforeSave() {
       });
 
       validateUniqueStonePoints(normalizedBlock.initialPosition || [], "Initial position");
-      let priorAnimationMoves = [];
+      let currentAnimationStones = [...(normalizedBlock.initialPosition || [])];
       normalizedBlock.animationChunks.forEach((chunk) => {
-        validateStoneProgression([...((normalizedBlock.initialPosition || [])), ...priorAnimationMoves], chunk.moves || [], chunk.label);
-        priorAnimationMoves = [...priorAnimationMoves, ...(chunk.moves || [])];
+        validateStoneProgression(currentAnimationStones, chunk.moves || [], normalizedBlock.boardSize, chunk.label);
+        currentAnimationStones = applyMoveSequence(currentAnimationStones, chunk.moves || [], normalizedBlock.boardSize).stones;
       });
-      validatePuzzleBranches(normalizedBlock.initialPosition || [], normalizedBlock.branches || [], "Puzzle branch", normalizedBlock.playerSide || "both");
+      validatePuzzleBranches(
+        normalizedBlock.initialPosition || [],
+        normalizedBlock.branches || [],
+        normalizedBlock.boardSize,
+        "Puzzle branch",
+        normalizedBlock.playerSide || "both"
+      );
 
       (normalizedBlock.markers || []).forEach((marker, markerIndex) => {
         assertCoordinateInBounds(marker.x, marker.y, Number(normalizedBlock.boardSize), `marker ${markerIndex + 1}`);

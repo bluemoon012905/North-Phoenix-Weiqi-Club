@@ -902,13 +902,37 @@ textarea {
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  margin-top: 16px;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.weiqi-stack-nav button[data-weiqi-stack-action] {
+  min-width: 140px;
+  min-height: 52px;
+  padding: 0 24px;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: var(--ink);
+  color: white;
+  border: none;
+  clip-path: var(--button-edge);
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.weiqi-stack-nav button[data-weiqi-stack-action]:hover {
+  opacity: 0.85;
+}
+
+.weiqi-stack-nav button[data-weiqi-stack-action]:disabled {
+  opacity: 0.3;
+  cursor: default;
 }
 
 .weiqi-stack-status {
   margin: 0;
-  min-width: 132px;
+  min-width: 100px;
   text-align: center;
   color: var(--muted);
   text-transform: uppercase;

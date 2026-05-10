@@ -770,6 +770,7 @@ button.danger:hover {
 }
 
 .content-block-card.is-drop-before::before,
+.content-block-card.is-drop-stack::before,
 .content-block-card.is-drop-after::after {
   content: "";
   position: absolute;
@@ -784,6 +785,13 @@ button.danger:hover {
 
 .content-block-card.is-drop-before::before {
   top: 8px;
+}
+
+.content-block-card.is-drop-stack::before {
+  top: 50%;
+  height: 38px;
+  transform: translateY(-50%);
+  background: rgba(33, 93, 143, 0.14);
 }
 
 .content-block-card.is-drop-after::after {

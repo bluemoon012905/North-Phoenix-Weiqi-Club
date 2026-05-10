@@ -326,12 +326,13 @@ function validateWeiqiBlock(block, postIndex, blockIndex) {
         : Array.isArray(block.variations) && block.variations.length
           ? block.variations
           : [{ label: "Main line", moves: block.moves || [] }];
-    let priorMoves = [];
+    let currentStones = [...initialPosition];
     animationChunks.forEach((chunk, chunkIndex) => {
       validateWeiqiStoneList(chunk.moves, boardSize, `Post ${postIndex + 1} block ${blockIndex + 1} chunk ${chunkIndex + 1} moves`);
       validateWeiqiStoneProgression(
-        [...initialPosition, ...priorMoves],
+        currentStones,
         chunk.moves,
+        boardSize,
         `Post ${postIndex + 1} block ${blockIndex + 1} chunk ${chunkIndex + 1} moves`
       );
       (chunk.moves || []).forEach((move, moveIndex) => {
@@ -341,7 +342,7 @@ function validateWeiqiBlock(block, postIndex, blockIndex) {
           `Post ${postIndex + 1} block ${blockIndex + 1} chunk ${chunkIndex + 1} move ${moveIndex + 1} markers`
         );
       });
-      priorMoves = [...priorMoves, ...(chunk.moves || [])];
+      currentStones = applyWeiqiMoveSequence(currentStones, chunk.moves || [], boardSize).stones;
     });
   }
 
@@ -431,7 +432,7 @@ function validateWeiqiFailureSequences(list, boardSize, initialPosition, label) 
       throw new Error(`${label} item ${index + 1} is invalid.`);
     }
     validateWeiqiStoneList(sequence.moves || [], boardSize, `${label} item ${index + 1} moves`);
-    validateWeiqiStoneProgression(initialPosition, sequence.moves || [], `${label} item ${index + 1} moves`);
+    validateWeiqiStoneProgression(initialPosition, sequence.moves || [], boardSize, `${label} item ${index + 1} moves`);
     if (sequence.message != null && typeof sequence.message !== "string") {
       throw new Error(`${label} item ${index + 1} message must be a string.`);
     }
@@ -497,7 +498,7 @@ function validateWeiqiPuzzleBranches(list, boardSize, initialPosition, label) {
       throw new Error(`${label} item ${index + 1} must end in correct or incorrect.`);
     }
     validateWeiqiStoneList(branch.moves || [], boardSize, `${label} item ${index + 1} moves`);
-    validateWeiqiStoneProgression(initialPosition, branch.moves || [], `${label} item ${index + 1} moves`);
+    validateWeiqiStoneProgression(initialPosition, branch.moves || [], boardSize, `${label} item ${index + 1} moves`);
     if (branch.message != null && typeof branch.message !== "string") {
       throw new Error(`${label} item ${index + 1} message must be a string.`);
     }
@@ -563,18 +564,131 @@ function validateUniqueBoardPoints(stones, label) {
   });
 }
 
-function validateWeiqiStoneProgression(initialPosition, sequence, label) {
-  const occupied = new Set();
-  initialPosition.forEach((stone) => {
-    occupied.add(`${stone.x},${stone.y}`);
+function getBoardPointKey(point) {
+  return `${point.x},${point.y}`;
+}
+
+function buildWeiqiStoneMap(stones = []) {
+  const stoneMap = new Map();
+  stones.forEach((stone) => {
+    stoneMap.set(getBoardPointKey(stone), stone);
+  });
+  return stoneMap;
+}
+
+function getNeighborBoardPoints(point, boardSize) {
+  const neighbors = [];
+  if (point.x > 0) {
+    neighbors.push({ x: point.x - 1, y: point.y });
+  }
+  if (point.x < boardSize - 1) {
+    neighbors.push({ x: point.x + 1, y: point.y });
+  }
+  if (point.y > 0) {
+    neighbors.push({ x: point.x, y: point.y - 1 });
+  }
+  if (point.y < boardSize - 1) {
+    neighbors.push({ x: point.x, y: point.y + 1 });
+  }
+  return neighbors;
+}
+
+function collectWeiqiGroup(stoneMap, startPoint, boardSize) {
+  const startStone = stoneMap.get(getBoardPointKey(startPoint));
+  if (!startStone) {
+    return { stones: [], liberties: new Set() };
+  }
+
+  const queue = [startStone];
+  const visited = new Set();
+  const stones = [];
+  const liberties = new Set();
+
+  while (queue.length) {
+    const stone = queue.pop();
+    const stoneKey = getBoardPointKey(stone);
+    if (visited.has(stoneKey)) {
+      continue;
+    }
+
+    visited.add(stoneKey);
+    stones.push(stone);
+
+    getNeighborBoardPoints(stone, boardSize).forEach((neighbor) => {
+      const neighborKey = getBoardPointKey(neighbor);
+      const neighborStone = stoneMap.get(neighborKey);
+      if (!neighborStone) {
+        liberties.add(neighborKey);
+        return;
+      }
+      if (neighborStone.color === startStone.color && !visited.has(neighborKey)) {
+        queue.push(neighborStone);
+      }
+    });
+  }
+
+  return { stones, liberties };
+}
+
+function applyWeiqiMoveToStoneMap(stoneMap, move, boardSize) {
+  const pointKey = getBoardPointKey(move);
+  if (stoneMap.has(pointKey)) {
+    throw new Error(`plays on an occupied point at (${move.x}, ${move.y})`);
+  }
+
+  const nextMap = new Map(stoneMap);
+  const placedStone = { ...move };
+  nextMap.set(pointKey, placedStone);
+
+  const opponentColor = move.color === "black" ? "white" : "black";
+  const processedGroups = new Set();
+
+  getNeighborBoardPoints(move, boardSize).forEach((neighbor) => {
+    const neighborKey = getBoardPointKey(neighbor);
+    const neighborStone = nextMap.get(neighborKey);
+    if (!neighborStone || neighborStone.color !== opponentColor || processedGroups.has(neighborKey)) {
+      return;
+    }
+
+    const group = collectWeiqiGroup(nextMap, neighborStone, boardSize);
+    group.stones.forEach((stone) => processedGroups.add(getBoardPointKey(stone)));
+    if (group.liberties.size === 0) {
+      group.stones.forEach((stone) => {
+        nextMap.delete(getBoardPointKey(stone));
+      });
+    }
   });
 
+  const ownGroup = collectWeiqiGroup(nextMap, placedStone, boardSize);
+  if (ownGroup.liberties.size === 0) {
+    throw new Error(`has no liberties after captures at (${move.x}, ${move.y})`);
+  }
+
+  return {
+    stoneMap: nextMap,
+    stones: [...nextMap.values()],
+  };
+}
+
+function applyWeiqiMoveSequence(initialPosition, sequence, boardSize) {
+  let stoneMap = buildWeiqiStoneMap(initialPosition);
+  (sequence || []).forEach((move) => {
+    stoneMap = applyWeiqiMoveToStoneMap(stoneMap, move, boardSize).stoneMap;
+  });
+  return {
+    stoneMap,
+    stones: [...stoneMap.values()],
+  };
+}
+
+function validateWeiqiStoneProgression(initialPosition, sequence, boardSize, label) {
+  let stoneMap = buildWeiqiStoneMap(initialPosition);
   sequence.forEach((stone, index) => {
-    const key = `${stone.x},${stone.y}`;
-    if (occupied.has(key)) {
-      throw new Error(`${label} item ${index + 1} plays on an occupied point.`);
+    try {
+      stoneMap = applyWeiqiMoveToStoneMap(stoneMap, stone, boardSize).stoneMap;
+    } catch (error) {
+      throw new Error(`${label} item ${index + 1} ${error.message}.`);
     }
-    occupied.add(key);
   });
 }
 

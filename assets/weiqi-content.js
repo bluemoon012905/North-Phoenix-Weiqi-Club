@@ -7,6 +7,7 @@ const BlueshellWeiqi = (() => {
   const SVG_DIMENSION = 512;
   const SVG_PADDING = 30;
   const MIN_VIEW_SPAN = 4;
+  const PUZZLE_RESPONSE_DELAY_MS = 450;
 
   function escapeHtml(value) {
     return String(value)
@@ -296,9 +297,9 @@ const BlueshellWeiqi = (() => {
             .join("")}
         </div>
         <div class="weiqi-stack-nav">
-          <button type="button" class="secondary-ink" data-weiqi-stack-action="prev" aria-label="Previous stacked board">←</button>
+          <button type="button" data-weiqi-stack-action="prev" aria-label="Previous board">← Prev</button>
           <p class="weiqi-stack-status" data-weiqi-stack-status>Board 1 of ${blocks.length}</p>
-          <button type="button" class="secondary-ink" data-weiqi-stack-action="next" aria-label="Next stacked board">→</button>
+          <button type="button" data-weiqi-stack-action="next" aria-label="Next board">Next →</button>
         </div>
       </section>
     `;
@@ -402,6 +403,7 @@ const BlueshellWeiqi = (() => {
           solved: false,
           failed: false,
           autoplayTimer: null,
+          puzzleResponseTimer: null,
         };
         boardRegistry.set(element, state);
         bindBlock(element, state);
@@ -453,6 +455,10 @@ const BlueshellWeiqi = (() => {
     if (status) {
       status.textContent = `Board ${activeIndex + 1} of ${pages.length}`;
     }
+    const prevBtn = stackElement.querySelector("[data-weiqi-stack-action='prev']");
+    const nextBtn = stackElement.querySelector("[data-weiqi-stack-action='next']");
+    if (prevBtn) prevBtn.disabled = activeIndex === 0;
+    if (nextBtn) nextBtn.disabled = activeIndex === pages.length - 1;
   }
 
   function teardown(element) {
@@ -461,6 +467,7 @@ const BlueshellWeiqi = (() => {
       window.clearInterval(state.autoplayTimer);
       state.autoplayTimer = null;
     }
+    clearPuzzleResponseTimer(state);
     boardRegistry.delete(element);
   }
 
@@ -530,6 +537,7 @@ const BlueshellWeiqi = (() => {
 
     if (state.block.mode === "puzzle") {
       if (action === "reset") {
+        clearPuzzleResponseTimer(state);
         state.appliedMoves = [];
         state.status = "";
         state.solved = false;
@@ -574,8 +582,15 @@ const BlueshellWeiqi = (() => {
     }
   }
 
+  function clearPuzzleResponseTimer(state) {
+    if (state?.puzzleResponseTimer) {
+      window.clearTimeout(state.puzzleResponseTimer);
+      state.puzzleResponseTimer = null;
+    }
+  }
+
   function handlePuzzleMove(boardElement, state, event) {
-    if (state.failed || state.solved) {
+    if (state.failed || state.solved || state.puzzleResponseTimer) {
       return;
     }
 
@@ -661,26 +676,32 @@ const BlueshellWeiqi = (() => {
 
       if (distinctOpponentMoves.length > 0) {
         const opponentMove = distinctOpponentMoves[Math.floor(Math.random() * distinctOpponentMoves.length)];
-        state.appliedMoves = [...state.appliedMoves, opponentMove];
-
-        // Re-match with the chosen opponent move applied so transpositions resolve correctly.
-        const afterOpponentBranches = getMatchingPuzzleBranches(branches, state.appliedMoves);
-        const exactAfterOpponent = afterOpponentBranches.filter((b) => b.moves.length === state.appliedMoves.length);
-        if (exactAfterOpponent.length) {
-          const terminalBranch = exactAfterOpponent[0];
-          if (terminalBranch.outcome === "correct") {
-            state.solved = true;
-            state.status = terminalBranch.message || "Solved.";
-          } else {
-            state.failed = true;
-            state.status = terminalBranch.message || state.block.defaultIncorrectMessage || "That move does not solve the puzzle.";
-          }
-          renderBlock(boardElement.closest(BLOCK_SELECTOR), state);
-          return;
-        }
-
-        state.status = `Your move accepted. ${afterOpponentBranches.length} continuation${afterOpponentBranches.length === 1 ? "" : "s"} remain.`;
+        state.status = "Move accepted.";
         renderBlock(boardElement.closest(BLOCK_SELECTOR), state);
+
+        state.puzzleResponseTimer = window.setTimeout(() => {
+          state.puzzleResponseTimer = null;
+          state.appliedMoves = [...state.appliedMoves, opponentMove];
+
+          // Re-match with the chosen opponent move applied so transpositions resolve correctly.
+          const afterOpponentBranches = getMatchingPuzzleBranches(branches, state.appliedMoves);
+          const exactAfterOpponent = afterOpponentBranches.filter((b) => b.moves.length === state.appliedMoves.length);
+          if (exactAfterOpponent.length) {
+            const terminalBranch = exactAfterOpponent[0];
+            if (terminalBranch.outcome === "correct") {
+              state.solved = true;
+              state.status = terminalBranch.message || "Solved.";
+            } else {
+              state.failed = true;
+              state.status = terminalBranch.message || state.block.defaultIncorrectMessage || "That move does not solve the puzzle.";
+            }
+            renderBlock(boardElement.closest(BLOCK_SELECTOR), state);
+            return;
+          }
+
+          state.status = `Your move accepted. ${afterOpponentBranches.length} continuation${afterOpponentBranches.length === 1 ? "" : "s"} remain.`;
+          renderBlock(boardElement.closest(BLOCK_SELECTOR), state);
+        }, PUZZLE_RESPONSE_DELAY_MS);
         return;
       }
     }

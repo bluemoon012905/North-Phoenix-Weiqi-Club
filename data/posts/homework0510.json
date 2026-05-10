@@ -218,7 +218,7 @@
       "boardSize": 19,
       "coordinateSystem": "zero-based",
       "caption": "New Weiqi block",
-      "stackGroup": "stack-1778387368925",
+      "stackGroup": "",
       "initialPosition": [
         {
           "color": "white",
@@ -385,11 +385,153 @@
     },
     {
       "type": "weiqi",
+      "mode": "puzzle",
+      "boardSize": 19,
+      "coordinateSystem": "zero-based",
+      "caption": "New Weiqi block",
+      "stackGroup": "",
+      "initialPosition": [
+        {
+          "color": "black",
+          "x": 16,
+          "y": 1,
+          "markers": []
+        },
+        {
+          "color": "white",
+          "x": 17,
+          "y": 1,
+          "markers": []
+        },
+        {
+          "color": "black",
+          "x": 16,
+          "y": 2,
+          "markers": []
+        },
+        {
+          "color": "white",
+          "x": 17,
+          "y": 2,
+          "markers": []
+        },
+        {
+          "color": "black",
+          "x": 16,
+          "y": 3,
+          "markers": []
+        },
+        {
+          "color": "white",
+          "x": 17,
+          "y": 4,
+          "markers": []
+        },
+        {
+          "color": "black",
+          "x": 16,
+          "y": 4,
+          "markers": []
+        },
+        {
+          "color": "white",
+          "x": 17,
+          "y": 5,
+          "markers": []
+        },
+        {
+          "color": "black",
+          "x": 15,
+          "y": 5,
+          "markers": []
+        },
+        {
+          "color": "white",
+          "x": 16,
+          "y": 5,
+          "markers": []
+        },
+        {
+          "color": "black",
+          "x": 14,
+          "y": 5,
+          "markers": []
+        },
+        {
+          "color": "white",
+          "x": 15,
+          "y": 4,
+          "markers": []
+        },
+        {
+          "color": "black",
+          "x": 14,
+          "y": 3,
+          "markers": []
+        },
+        {
+          "color": "white",
+          "x": 15,
+          "y": 3,
+          "markers": []
+        },
+        {
+          "color": "white",
+          "x": 15,
+          "y": 2,
+          "markers": []
+        },
+        {
+          "color": "white",
+          "x": 11,
+          "y": 2,
+          "markers": []
+        },
+        {
+          "color": "white",
+          "x": 12,
+          "y": 1,
+          "markers": []
+        }
+      ],
+      "markers": [],
+      "viewWindow": {
+        "xMin": 9,
+        "yMin": 0,
+        "xMax": 18,
+        "yMax": 7
+      },
+      "animationChunks": [
+        {
+          "id": "chunk-1",
+          "label": "Main line",
+          "caption": "",
+          "moves": []
+        }
+      ],
+      "successSequence": [],
+      "failureSequences": [],
+      "branches": [
+        {
+          "id": "branch-1",
+          "label": "Branch 1",
+          "moves": [],
+          "outcome": "correct",
+          "message": ""
+        }
+      ],
+      "defaultIncorrectMessage": "That move does not match an authored variation.",
+      "playerSide": "both",
+      "prompt": "Black to play. Find the best move.",
+      "explanation": ""
+    },
+    {
+      "type": "weiqi",
       "mode": "static",
       "boardSize": 19,
       "coordinateSystem": "zero-based",
       "caption": "Joseki: attach on approach",
-      "stackGroup": "stack-1778387368925",
+      "stackGroup": "",
       "initialPosition": [
         {
           "color": "black",

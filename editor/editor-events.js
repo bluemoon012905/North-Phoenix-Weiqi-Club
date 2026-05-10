@@ -402,7 +402,7 @@ fields.contentBlockFields.addEventListener("dragleave", (event) => {
 
   const targetIndex = Number(card.dataset.contentBlockCardIndex);
   if (editorState.contentBlockDrag.targetIndex === targetIndex) {
-    card.classList.remove("is-drop-target", "is-drop-before", "is-drop-after");
+    card.classList.remove("is-drop-target", "is-drop-before", "is-drop-stack", "is-drop-after");
     editorState.contentBlockDrag.targetIndex = null;
     editorState.contentBlockDrag.targetSide = null;
   }
@@ -427,6 +427,20 @@ fields.contentBlockFields.addEventListener("drop", (event) => {
     return;
   }
 
+  if (sourceIndex === targetIndex) {
+    return;
+  }
+
+  if (targetSide === "stack") {
+    const post = getCurrentPost();
+    const firstBlock = post?.contentBlocks?.[sourceIndex];
+    const secondBlock = post?.contentBlocks?.[targetIndex];
+    if (firstBlock?.type === "weiqi" && secondBlock?.type === "weiqi") {
+      stackWeiqiBlocks(sourceIndex, targetIndex);
+    }
+    return;
+  }
+
   const insertionIndex =
     targetSide === "after"
       ? sourceIndex < targetIndex
@@ -443,21 +457,6 @@ fields.contentBlockFields.addEventListener("drop", (event) => {
   const result = moveContentBlock(sourceIndex, insertionIndex);
   if (!result) {
     return;
-  }
-
-  if (!Number.isInteger(result.partnerIndex) || result.partnerIndex < 0) {
-    return;
-  }
-
-  const post = getCurrentPost();
-  const firstBlock = post?.contentBlocks?.[result.movedIndex];
-  const secondBlock = post?.contentBlocks?.[result.partnerIndex];
-  if (firstBlock?.type !== "weiqi" || secondBlock?.type !== "weiqi") {
-    return;
-  }
-
-  if (window.confirm("Stack these two Weiqi blocks together in the public post view?")) {
-    stackWeiqiBlocks(result.movedIndex, result.partnerIndex);
   }
 });
 

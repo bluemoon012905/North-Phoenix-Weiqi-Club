@@ -8,6 +8,8 @@
     getCoordinateFromPointer: getWeiqiCoordinateFromPointer,
     getPointKey,
     buildStoneMap,
+    applyMoveSequence,
+    applyMoveToStoneMap,
   } = window.BlueshellWeiqi;
 
   const WEIQI_BOARD_SIZES = [9, 13, 19];
@@ -113,18 +115,18 @@
     });
   }
 
-  function validateStoneProgression(initialPosition, sequence, label) {
-    const occupied = new Set(initialPosition.map((stone) => `${stone.x},${stone.y}`));
+  function validateStoneProgression(initialPosition, sequence, boardSize, label) {
+    let stoneMap = buildStoneMap(initialPosition);
     sequence.forEach((stone, index) => {
-      const key = `${stone.x},${stone.y}`;
-      if (occupied.has(key)) {
-        throw new Error(`${label} item ${index + 1} plays on an occupied point.`);
+      try {
+        stoneMap = applyMoveToStoneMap(stoneMap, stone, boardSize).stoneMap;
+      } catch (error) {
+        throw new Error(`${label} item ${index + 1} is invalid: ${error.message}`);
       }
-      occupied.add(key);
     });
   }
 
-  function validatePuzzleBranches(initialPosition, branches, labelPrefix = "Puzzle branch", playerSide = "both", options = {}) {
+  function validatePuzzleBranches(initialPosition, branches, boardSize, labelPrefix = "Puzzle branch", playerSide = "both", options = {}) {
     const normalizedBranches = Array.isArray(branches) ? branches : [];
     const allowIncompletePrefixOverlap = options.allowIncompletePrefixOverlap === true;
 
@@ -158,7 +160,7 @@
         });
       }
 
-      validateStoneProgression(initialPosition, branch.moves || [], branch.label || `${labelPrefix} ${branchIndex + 1}`);
+      validateStoneProgression(initialPosition, branch.moves || [], boardSize, branch.label || `${labelPrefix} ${branchIndex + 1}`);
     });
 
     for (let i = 0; i < normalizedBranches.length; i += 1) {
@@ -276,10 +278,10 @@
       block.animationChunks = normalizeAnimatedVariations({
         animationChunks: JSON.parse(card.querySelector('[data-weiqi-key="animationChunks"]').value || "[]"),
       });
-      let priorMoves = [];
+      let currentStones = [...block.initialPosition];
       block.animationChunks.forEach((chunk) => {
-        validateStoneProgression([...block.initialPosition, ...priorMoves], chunk.moves, chunk.label || "Chunk");
-        priorMoves = [...priorMoves, ...(chunk.moves || [])];
+        validateStoneProgression(currentStones, chunk.moves, block.boardSize, chunk.label || "Chunk");
+        currentStones = applyMoveSequence(currentStones, chunk.moves || [], block.boardSize).stones;
       });
     }
 
@@ -292,7 +294,7 @@
           branches: JSON.parse(card.querySelector('[data-weiqi-key="branches"]').value || "[]"),
         })
       );
-      validatePuzzleBranches(block.initialPosition, block.branches, "Puzzle branch", block.playerSide, {
+      validatePuzzleBranches(block.initialPosition, block.branches, block.boardSize, "Puzzle branch", block.playerSide, {
         allowIncompletePrefixOverlap: true,
       });
       block.defaultIncorrectMessage = card.querySelector('[data-weiqi-key="defaultIncorrectMessage"]').value.trim();
@@ -604,7 +606,8 @@
     }
 
     const priorMoves = (block.animationChunks || []).slice(0, editorUiState.selectedChunkIndex).flatMap((entry) => entry.moves || []);
-    updateSequenceMoves([...block.initialPosition, ...priorMoves], chunk.moves, coordinate, editorUiState.tool);
+    const currentStones = applyMoveSequence(block.initialPosition || [], priorMoves, block.boardSize).stones;
+    updateSequenceMoves(currentStones, chunk.moves, block.boardSize, coordinate, editorUiState.tool);
     editorUiState.selectedMoveIndex = chunk.moves.length;
   }
 
@@ -614,11 +617,18 @@
       return;
     }
 
-    updateSequenceMoves(block.initialPosition, branch.moves, coordinate, "auto");
+    const playerSide = block.playerSide;
+    let tool = "auto";
+    if (playerSide === "black" || playerSide === "white") {
+      const opponentSide = playerSide === "black" ? "white" : "black";
+      tool = branch.moves.length % 2 === 0 ? playerSide : opponentSide;
+    }
+
+    updateSequenceMoves(block.initialPosition, branch.moves, block.boardSize, coordinate, tool);
   }
 
-  function updateSequenceMoves(initialPosition, sequence, coordinate, tool) {
-    const occupied = buildStoneMap(initialPosition, sequence);
+  function updateSequenceMoves(initialPosition, sequence, boardSize, coordinate, tool) {
+    const occupied = applyMoveSequence(initialPosition, sequence, boardSize).stoneMap;
     const key = getPointKey(coordinate);
 
     const existingIndex = sequence.findIndex((move) => getPointKey(move) === key);
