@@ -24,120 +24,35 @@
         {
           "color": "black",
           "x": 15,
-          "y": 3
+          "y": 3,
+          "markers": []
         },
         {
           "color": "white",
-          "x": 13,
-          "y": 2
-        },
-        {
-          "color": "black",
-          "x": 13,
-          "y": 3
-        },
-        {
-          "color": "white",
-          "x": 12,
-          "y": 3
-        },
-        {
-          "color": "white",
-          "x": 14,
-          "y": 2
-        },
-        {
-          "color": "black",
-          "x": 15,
-          "y": 2
-        },
-        {
-          "color": "black",
-          "x": 13,
-          "y": 4
-        },
-        {
-          "color": "white",
-          "x": 10,
-          "y": 2
-        },
-        {
-          "color": "black",
-          "x": 15,
-          "y": 5
+          "x": 16,
+          "y": 5,
+          "markers": []
         }
       ],
-      "markers": [
-        {
-          "x": 17,
-          "y": 2,
-          "label": "A",
-          "shape": "circle"
-        },
-        {
-          "x": 17,
-          "y": 3,
-          "label": "A",
-          "shape": "circle"
-        },
-        {
-          "x": 17,
-          "y": 4,
-          "label": "A",
-          "shape": "circle"
-        },
-        {
-          "x": 17,
-          "y": 5,
-          "label": "A",
-          "shape": "circle"
-        },
-        {
-          "x": 15,
-          "y": 3,
-          "label": "A",
-          "shape": "circle"
-        },
-        {
-          "x": 15,
-          "y": 2,
-          "label": "A",
-          "shape": "circle"
-        },
-        {
-          "x": 13,
-          "y": 3,
-          "label": "A",
-          "shape": "circle"
-        },
-        {
-          "x": 13,
-          "y": 4,
-          "label": "A",
-          "shape": "circle"
-        },
-        {
-          "x": 15,
-          "y": 5,
-          "label": "A",
-          "shape": "circle"
-        }
-      ],
+      "markers": [],
       "viewWindow": {
         "xMin": 8,
         "yMin": 0,
         "xMax": 18,
         "yMax": 10
       },
-      "variations": [
+      "animationChunks": [
         {
-          "id": "variation-1",
+          "id": "chunk-1",
           "label": "Main line",
+          "caption": "",
           "moves": []
         }
       ],
       "successSequence": [],
-      "failureSequences": []
+      "failureSequences": [],
+      "branches": [],
+      "defaultIncorrectMessage": "That move does not match an authored variation."
     }
   ]
 }

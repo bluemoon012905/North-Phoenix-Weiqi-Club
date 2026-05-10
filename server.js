@@ -290,10 +290,28 @@ function validateWeiqiBlock(block, postIndex, blockIndex) {
   validateWeiqiViewWindow(block.viewWindow, boardSize, `Post ${postIndex + 1} block ${blockIndex + 1} viewWindow`);
 
   if (block.mode === "animated") {
-    const variations = Array.isArray(block.variations) && block.variations.length ? block.variations : [{ label: "Main line", moves: block.moves || [] }];
-    variations.forEach((variation, variationIndex) => {
-      validateWeiqiStoneList(variation.moves, boardSize, `Post ${postIndex + 1} block ${blockIndex + 1} variation ${variationIndex + 1} moves`);
-      validateWeiqiStoneProgression(initialPosition, variation.moves, `Post ${postIndex + 1} block ${blockIndex + 1} variation ${variationIndex + 1} moves`);
+    const animationChunks =
+      Array.isArray(block.animationChunks) && block.animationChunks.length
+        ? block.animationChunks
+        : Array.isArray(block.variations) && block.variations.length
+          ? block.variations
+          : [{ label: "Main line", moves: block.moves || [] }];
+    let priorMoves = [];
+    animationChunks.forEach((chunk, chunkIndex) => {
+      validateWeiqiStoneList(chunk.moves, boardSize, `Post ${postIndex + 1} block ${blockIndex + 1} chunk ${chunkIndex + 1} moves`);
+      validateWeiqiStoneProgression(
+        [...initialPosition, ...priorMoves],
+        chunk.moves,
+        `Post ${postIndex + 1} block ${blockIndex + 1} chunk ${chunkIndex + 1} moves`
+      );
+      (chunk.moves || []).forEach((move, moveIndex) => {
+        validateWeiqiMarkers(
+          move.markers,
+          boardSize,
+          `Post ${postIndex + 1} block ${blockIndex + 1} chunk ${chunkIndex + 1} move ${moveIndex + 1} markers`
+        );
+      });
+      priorMoves = [...priorMoves, ...(chunk.moves || [])];
     });
   }
 
@@ -302,22 +320,13 @@ function validateWeiqiBlock(block, postIndex, blockIndex) {
       throw new Error(`Post ${postIndex + 1} block ${blockIndex + 1} puzzle needs a prompt.`);
     }
 
-    const successSequence = Array.isArray(block.successSequence) ? block.successSequence : Array.isArray(block.solution) ? block.solution : [];
-    validateWeiqiStoneList(successSequence, boardSize, `Post ${postIndex + 1} block ${blockIndex + 1} successSequence`);
-    validateWeiqiStoneProgression(initialPosition, successSequence, `Post ${postIndex + 1} block ${blockIndex + 1} successSequence`);
-
-    const failureSequences = Array.isArray(block.failureSequences)
-      ? block.failureSequences
-      : Array.isArray(block.failureStates)
-        ? block.failureStates.map((failureState) => ({
-            moves: [{ color: successSequence[0]?.color || "black", x: failureState.x, y: failureState.y }],
-            message: failureState.message || "",
-          }))
-        : [];
-
-    validateWeiqiFailureSequences(failureSequences, boardSize, initialPosition, `Post ${postIndex + 1} block ${blockIndex + 1} failureSequences`);
+    const branches = normalizeWeiqiPuzzleBranches(block);
+    validateWeiqiPuzzleBranches(branches, boardSize, initialPosition, `Post ${postIndex + 1} block ${blockIndex + 1} branches`);
     if (block.explanation != null && typeof block.explanation !== "string") {
       throw new Error(`Post ${postIndex + 1} block ${blockIndex + 1} explanation must be a string.`);
+    }
+    if (block.defaultIncorrectMessage != null && typeof block.defaultIncorrectMessage !== "string") {
+      throw new Error(`Post ${postIndex + 1} block ${blockIndex + 1} defaultIncorrectMessage must be a string.`);
     }
   }
 
@@ -397,6 +406,94 @@ function validateWeiqiFailureSequences(list, boardSize, initialPosition, label) 
       throw new Error(`${label} item ${index + 1} message must be a string.`);
     }
   });
+}
+
+function normalizeWeiqiPuzzleBranches(block) {
+  if (Array.isArray(block.branches) && block.branches.length) {
+    return block.branches.map((branch, index) => ({
+      id: branch.id || `branch-${index + 1}`,
+      label: branch.label || `Branch ${index + 1}`,
+      moves: Array.isArray(branch.moves) ? branch.moves : [],
+      outcome: branch.outcome === "correct" ? "correct" : "incorrect",
+      message: typeof branch.message === "string" ? branch.message : "",
+    }));
+  }
+
+  const successSequence = Array.isArray(block.successSequence) ? block.successSequence : Array.isArray(block.solution) ? block.solution : [];
+  const branches = successSequence.length
+    ? [
+        {
+          id: "branch-1",
+          label: "Correct line",
+          moves: successSequence,
+          outcome: "correct",
+          message: "",
+        },
+      ]
+    : [];
+
+  const failureSequences = Array.isArray(block.failureSequences)
+    ? block.failureSequences
+    : Array.isArray(block.failureStates)
+      ? block.failureStates.map((failureState) => ({
+          moves: [{ color: successSequence[0]?.color || "black", x: failureState.x, y: failureState.y }],
+          message: failureState.message || "",
+        }))
+      : [];
+
+  failureSequences.forEach((sequence, index) => {
+    branches.push({
+      id: sequence.id || `branch-${branches.length + 1}`,
+      label: sequence.label || `Incorrect ${index + 1}`,
+      moves: Array.isArray(sequence.moves) ? sequence.moves : [],
+      outcome: "incorrect",
+      message: typeof sequence.message === "string" ? sequence.message : "",
+    });
+  });
+
+  return branches;
+}
+
+function validateWeiqiPuzzleBranches(list, boardSize, initialPosition, label) {
+  if (!Array.isArray(list)) {
+    throw new Error(`${label} must be an array.`);
+  }
+
+  list.forEach((branch, index) => {
+    if (!branch || typeof branch !== "object") {
+      throw new Error(`${label} item ${index + 1} is invalid.`);
+    }
+    if (branch.outcome !== "correct" && branch.outcome !== "incorrect") {
+      throw new Error(`${label} item ${index + 1} must end in correct or incorrect.`);
+    }
+    validateWeiqiStoneList(branch.moves || [], boardSize, `${label} item ${index + 1} moves`);
+    validateWeiqiStoneProgression(initialPosition, branch.moves || [], `${label} item ${index + 1} moves`);
+    if (branch.message != null && typeof branch.message !== "string") {
+      throw new Error(`${label} item ${index + 1} message must be a string.`);
+    }
+  });
+
+  for (let i = 0; i < list.length; i += 1) {
+    for (let j = i + 1; j < list.length; j += 1) {
+      const branchA = list[i];
+      const branchB = list[j];
+      const sharedLength = Math.min(branchA.moves.length, branchB.moves.length);
+      let diverged = false;
+
+      for (let moveIndex = 0; moveIndex < sharedLength; moveIndex += 1) {
+        const moveA = branchA.moves[moveIndex];
+        const moveB = branchB.moves[moveIndex];
+        if (!moveA || !moveB || moveA.color !== moveB.color || moveA.x !== moveB.x || moveA.y !== moveB.y) {
+          diverged = true;
+          break;
+        }
+      }
+
+      if (!diverged && (branchA.moves.length === sharedLength || branchB.moves.length === sharedLength)) {
+        throw new Error(`${label} items ${i + 1} and ${j + 1} cannot end on the same prefix path.`);
+      }
+    }
+  }
 }
 
 function validateWeiqiViewWindow(viewWindow, boardSize, label) {

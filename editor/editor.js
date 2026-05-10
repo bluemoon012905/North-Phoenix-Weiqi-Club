@@ -17,8 +17,7 @@ const {
   normalizeViewWindow,
   getDefaultViewWindow,
   normalizeAnimatedVariations,
-  normalizePuzzleSuccessSequence,
-  normalizePuzzleFailureSequences,
+  normalizePuzzleBranches,
   buildBoardSvg,
   getCoordinateFromPointer: getWeiqiCoordinateFromPointer,
   getPointKey,
@@ -311,19 +310,31 @@ function getDefaultWeiqiBlock(mode = "static") {
     initialPosition: [],
     markers: [],
     viewWindow: getDefaultViewWindow(19),
-    variations:
+    animationChunks:
       mode === "animated"
         ? [
             {
-              id: "variation-1",
-              label: "Variation 1",
+              id: "chunk-1",
+              label: "Chunk 1",
+              caption: "",
               moves: [],
             },
           ]
         : [],
     prompt: mode === "puzzle" ? "Black to play. Find the best move." : "",
-    successSequence: mode === "puzzle" ? [] : [],
-    failureSequences: mode === "puzzle" ? [{ id: "failure-1", label: "Failure 1", moves: [], message: "" }] : [],
+    branches:
+      mode === "puzzle"
+        ? [
+            {
+              id: "branch-1",
+              label: "Correct branch 1",
+              moves: [],
+              outcome: "correct",
+              message: "",
+            },
+          ]
+        : [],
+    defaultIncorrectMessage: mode === "puzzle" ? "That move does not match an authored variation." : "",
     explanation: "",
   });
 }
@@ -419,42 +430,77 @@ function renderContentBlockCard(block, index) {
             normalizedBlock.explanation || ""
           )}</textarea>
         </label>
+        <label class="full-width ${normalizedBlock.mode === "puzzle" ? "" : "hidden"}" data-mode-section="puzzle">
+          <span>Default incorrect message</span>
+          <textarea data-weiqi-key="defaultIncorrectMessage" rows="3" placeholder="Used when a move is not part of any authored continuation.">${escapeHtml(
+            normalizedBlock.defaultIncorrectMessage || ""
+          )}</textarea>
+        </label>
       </div>
       <div class="weiqi-editor-layout weiqi-editor-layout--${escapeAttribute(normalizedBlock.mode)}" data-weiqi-editor data-content-block-index="${index}" data-editor-key="${escapeAttribute(editorKey)}">
         <div class="weiqi-editor-main">
           <div class="weiqi-editor-toolbar">
             <div class="weiqi-editor-tools">
-              <button type="button" class="secondary-ink ${editorUiState.layer === "initial" ? "is-active" : ""}" data-action="set-editor-layer" data-editor-layer="initial" data-content-block-index="${index}">Edit board</button>
               ${
-                normalizedBlock.mode === "animated"
-                  ? `<button type="button" class="secondary-ink ${editorUiState.layer === "variation" ? "is-active" : ""}" data-action="set-editor-layer" data-editor-layer="variation" data-content-block-index="${index}">Add sequence</button>`
-                  : ""
-              }
-              ${
-                normalizedBlock.mode === "puzzle"
-                  ? `<button type="button" class="secondary-ink ${editorUiState.layer === "success" ? "is-active" : ""}" data-action="set-editor-layer" data-editor-layer="success" data-content-block-index="${index}">Edit success</button>
-                     <button type="button" class="secondary-ink ${editorUiState.layer === "failure" ? "is-active" : ""}" data-action="set-editor-layer" data-editor-layer="failure" data-content-block-index="${index}">Edit failure</button>`
-                  : ""
-              }
-              <button type="button" class="secondary-ink ${editorUiState.layer === "markers" ? "is-active" : ""}" data-action="set-editor-layer" data-editor-layer="markers" data-content-block-index="${index}">Markers</button>
-            </div>
-            <div class="weiqi-editor-tools">
-              ${
-                editorUiState.layer === "markers"
+                normalizedBlock.mode === "static"
                   ? `
-                    <button type="button" class="secondary-ink ${editorUiState.markerMode === "label-alpha" ? "is-active" : ""}" data-action="set-editor-marker-mode" data-editor-marker-mode="label-alpha" data-content-block-index="${index}">A</button>
-                    <button type="button" class="secondary-ink ${editorUiState.markerMode === "label-numeric" ? "is-active" : ""}" data-action="set-editor-marker-mode" data-editor-marker-mode="label-numeric" data-content-block-index="${index}">1</button>
-                    <button type="button" class="secondary-ink ${editorUiState.markerMode === "triangle" ? "is-active" : ""}" data-action="set-editor-marker-mode" data-editor-marker-mode="triangle" data-content-block-index="${index}">Triangle</button>
-                    <button type="button" class="secondary-ink ${editorUiState.markerMode === "square" ? "is-active" : ""}" data-action="set-editor-marker-mode" data-editor-marker-mode="square" data-content-block-index="${index}">Square</button>
-                    <button type="button" class="secondary-ink ${editorUiState.markerMode === "erase" ? "is-active" : ""}" data-action="set-editor-marker-mode" data-editor-marker-mode="erase" data-content-block-index="${index}">Erase</button>
+                    <div class="weiqi-toolbox" role="toolbar" aria-label="Stone tools">
+                      <button type="button" aria-label="Black stones" title="Black stones" class="weiqi-tool-button ${editorUiState.layer === "initial" && editorUiState.tool === "black" ? "is-active" : ""}" data-action="set-editor-tool" data-editor-tool="black" data-content-block-index="${index}"><span class="weiqi-tool-glyph">●</span></button>
+                      <button type="button" aria-label="White stones" title="White stones" class="weiqi-tool-button ${editorUiState.layer === "initial" && editorUiState.tool === "white" ? "is-active" : ""}" data-action="set-editor-tool" data-editor-tool="white" data-content-block-index="${index}"><span class="weiqi-tool-glyph">○</span></button>
+                      <button type="button" aria-label="Alternate black and white" title="Alternate (black first)" class="weiqi-tool-button ${editorUiState.layer === "initial" && editorUiState.tool === "alternate" ? "is-active" : ""}" data-action="set-editor-tool" data-editor-tool="alternate" data-content-block-index="${index}"><span class="weiqi-tool-glyph">●○</span></button>
+                      <button type="button" aria-label="Erase stones" title="Erase stones" class="weiqi-tool-button ${editorUiState.layer === "initial" && editorUiState.tool === "erase" ? "is-active" : ""}" data-action="set-editor-tool" data-editor-tool="erase" data-content-block-index="${index}"><span class="weiqi-tool-glyph">✕</span></button>
+                    </div>
+                    <div class="weiqi-toolbox" role="toolbar" aria-label="Marker tools">
+                      <button type="button" aria-label="Letter markers" title="Letter markers" class="weiqi-tool-button ${editorUiState.layer === "markers" && editorUiState.markerMode === "label-alpha" ? "is-active" : ""}" data-action="set-editor-marker-mode" data-editor-marker-mode="label-alpha" data-content-block-index="${index}"><span class="weiqi-tool-glyph">A</span></button>
+                      <button type="button" aria-label="Number markers" title="Number markers" class="weiqi-tool-button ${editorUiState.layer === "markers" && editorUiState.markerMode === "label-numeric" ? "is-active" : ""}" data-action="set-editor-marker-mode" data-editor-marker-mode="label-numeric" data-content-block-index="${index}"><span class="weiqi-tool-glyph">1</span></button>
+                      <button type="button" aria-label="Triangle markers" title="Triangle markers" class="weiqi-tool-button ${editorUiState.layer === "markers" && editorUiState.markerMode === "triangle" ? "is-active" : ""}" data-action="set-editor-marker-mode" data-editor-marker-mode="triangle" data-content-block-index="${index}"><span class="weiqi-tool-glyph">△</span></button>
+                      <button type="button" aria-label="Square markers" title="Square markers" class="weiqi-tool-button ${editorUiState.layer === "markers" && editorUiState.markerMode === "square" ? "is-active" : ""}" data-action="set-editor-marker-mode" data-editor-marker-mode="square" data-content-block-index="${index}"><span class="weiqi-tool-glyph">□</span></button>
+                      <button type="button" aria-label="Erase markers" title="Erase markers" class="weiqi-tool-button ${editorUiState.layer === "markers" && editorUiState.markerMode === "erase" ? "is-active" : ""}" data-action="set-editor-marker-mode" data-editor-marker-mode="erase" data-content-block-index="${index}"><span class="weiqi-tool-glyph">✕</span></button>
+                    </div>
                   `
                   : `
-                    <button type="button" class="secondary-ink ${editorUiState.tool === "black" ? "is-active" : ""}" data-action="set-editor-tool" data-editor-tool="black" data-content-block-index="${index}">Black</button>
-                    <button type="button" class="secondary-ink ${editorUiState.tool === "white" ? "is-active" : ""}" data-action="set-editor-tool" data-editor-tool="white" data-content-block-index="${index}">White</button>
-                    <button type="button" class="secondary-ink ${editorUiState.tool === "erase" ? "is-active" : ""}" data-action="set-editor-tool" data-editor-tool="erase" data-content-block-index="${index}">Erase</button>
+                    <button type="button" class="secondary-ink ${editorUiState.layer === "initial" ? "is-active" : ""}" data-action="set-editor-layer" data-editor-layer="initial" data-content-block-index="${index}">Edit board</button>
+                    ${
+                      normalizedBlock.mode === "animated"
+                        ? `<button type="button" class="secondary-ink ${editorUiState.layer === "variation" ? "is-active" : ""}" data-action="set-editor-layer" data-editor-layer="variation" data-content-block-index="${index}">Edit chunks</button>`
+                        : ""
+                    }
+                    ${
+                      normalizedBlock.mode === "puzzle"
+                        ? `<button type="button" class="secondary-ink ${editorUiState.layer === "branch" ? "is-active" : ""}" data-action="set-editor-layer" data-editor-layer="branch" data-content-block-index="${index}">Edit branches</button>`
+                        : ""
+                    }
+                    <button type="button" class="secondary-ink ${editorUiState.layer === "markers" ? "is-active" : ""}" data-action="set-editor-layer" data-editor-layer="markers" data-content-block-index="${index}">Markers</button>
                   `
               }
             </div>
+            ${
+              normalizedBlock.mode !== "static"
+                ? `
+                  <div class="weiqi-editor-tools">
+                    ${
+                      editorUiState.layer === "markers"
+                        ? `
+                          <div class="weiqi-toolbox" role="toolbar" aria-label="Marker tools">
+                            <button type="button" aria-label="Letter markers" title="Letter markers" class="weiqi-tool-button ${editorUiState.markerMode === "label-alpha" ? "is-active" : ""}" data-action="set-editor-marker-mode" data-editor-marker-mode="label-alpha" data-content-block-index="${index}"><span class="weiqi-tool-glyph">A</span></button>
+                            <button type="button" aria-label="Number markers" title="Number markers" class="weiqi-tool-button ${editorUiState.markerMode === "label-numeric" ? "is-active" : ""}" data-action="set-editor-marker-mode" data-editor-marker-mode="label-numeric" data-content-block-index="${index}"><span class="weiqi-tool-glyph">1</span></button>
+                            <button type="button" aria-label="Triangle markers" title="Triangle markers" class="weiqi-tool-button ${editorUiState.markerMode === "triangle" ? "is-active" : ""}" data-action="set-editor-marker-mode" data-editor-marker-mode="triangle" data-content-block-index="${index}"><span class="weiqi-tool-glyph">△</span></button>
+                            <button type="button" aria-label="Square markers" title="Square markers" class="weiqi-tool-button ${editorUiState.markerMode === "square" ? "is-active" : ""}" data-action="set-editor-marker-mode" data-editor-marker-mode="square" data-content-block-index="${index}"><span class="weiqi-tool-glyph">□</span></button>
+                            <button type="button" aria-label="Erase markers" title="Erase markers" class="weiqi-tool-button ${editorUiState.markerMode === "erase" ? "is-active" : ""}" data-action="set-editor-marker-mode" data-editor-marker-mode="erase" data-content-block-index="${index}"><span class="weiqi-tool-glyph">✕</span></button>
+                          </div>
+                        `
+                        : `
+                          <div class="weiqi-toolbox" role="toolbar" aria-label="Stone tools">
+                            <button type="button" aria-label="Black stones" title="Black stones" class="weiqi-tool-button ${editorUiState.tool === "black" ? "is-active" : ""}" data-action="set-editor-tool" data-editor-tool="black" data-content-block-index="${index}"><span class="weiqi-tool-glyph">●</span></button>
+                            <button type="button" aria-label="White stones" title="White stones" class="weiqi-tool-button ${editorUiState.tool === "white" ? "is-active" : ""}" data-action="set-editor-tool" data-editor-tool="white" data-content-block-index="${index}"><span class="weiqi-tool-glyph">○</span></button>
+                            <button type="button" aria-label="Erase stones" title="Erase stones" class="weiqi-tool-button ${editorUiState.tool === "erase" ? "is-active" : ""}" data-action="set-editor-tool" data-editor-tool="erase" data-content-block-index="${index}"><span class="weiqi-tool-glyph">✕</span></button>
+                          </div>
+                        `
+                    }
+                  </div>
+                `
+                : ""
+            }
           </div>
           <div class="weiqi-editor-board-grid">
             <div class="weiqi-editor-board-panel">
@@ -495,9 +541,8 @@ function renderContentBlockCard(block, index) {
       <input data-weiqi-key="coordinateSystem" type="hidden" value="zero-based" />
       <textarea data-weiqi-key="initialPosition" class="hidden">${escapeHtml(formatStoneLines(normalizedBlock.initialPosition))}</textarea>
       <textarea data-weiqi-key="markers" class="hidden">${escapeHtml(formatMarkerLines(normalizedBlock.markers))}</textarea>
-      <textarea data-weiqi-key="variations" class="hidden">${escapeHtml(JSON.stringify(normalizedBlock.variations))}</textarea>
-      <textarea data-weiqi-key="successSequence" class="hidden">${escapeHtml(formatStoneLines(normalizedBlock.successSequence))}</textarea>
-      <textarea data-weiqi-key="failureSequences" class="hidden">${escapeHtml(JSON.stringify(normalizedBlock.failureSequences))}</textarea>
+      <textarea data-weiqi-key="animationChunks" class="hidden">${escapeHtml(JSON.stringify(normalizedBlock.animationChunks))}</textarea>
+      <textarea data-weiqi-key="branches" class="hidden">${escapeHtml(JSON.stringify(normalizedBlock.branches))}</textarea>
       <textarea data-weiqi-key="viewWindow" class="hidden">${escapeHtml(JSON.stringify(normalizedBlock.viewWindow))}</textarea>
       </div>
     </section>
@@ -513,11 +558,12 @@ function getWeiqiEditorState(blockIndex, block) {
   if (!editorState.weiqiEditors[key]) {
     editorState.weiqiEditors[key] = {
       isOpen: false,
-      layer: block.mode === "animated" ? "variation" : block.mode === "puzzle" ? "success" : "initial",
-      tool: "black",
+      layer: block.mode === "animated" ? "variation" : block.mode === "puzzle" ? "branch" : "initial",
+      tool: block.mode === "static" ? "alternate" : "black",
       markerMode: "label-alpha",
-      selectedVariationIndex: 0,
-      selectedFailureIndex: 0,
+      selectedChunkIndex: 0,
+      selectedMoveIndex: 0,
+      selectedBranchIndex: 0,
     };
   }
 
@@ -525,106 +571,128 @@ function getWeiqiEditorState(blockIndex, block) {
   if (block.mode === "static" && state.layer === "variation") {
     state.layer = "initial";
   }
-  if (block.mode !== "puzzle" && (state.layer === "success" || state.layer === "failure")) {
+  if (block.mode !== "puzzle" && state.layer === "branch") {
     state.layer = block.mode === "animated" ? "variation" : "initial";
+  }
+  if (block.mode !== "animated") {
+    state.selectedMoveIndex = 0;
+  } else {
+    state.selectedChunkIndex = Math.max(0, Math.min(state.selectedChunkIndex || 0, Math.max(0, (block.animationChunks || []).length - 1)));
+    const selectedChunk = block.animationChunks?.[state.selectedChunkIndex] || block.animationChunks?.[0];
+    const maxMoveIndex = Array.isArray(selectedChunk?.moves) ? selectedChunk.moves.length : 0;
+    state.selectedMoveIndex = Math.max(0, Math.min(state.selectedMoveIndex || 0, maxMoveIndex));
   }
   return state;
 }
 
 function renderWeiqiSequencePanel(block, editorUiState, blockIndex) {
   if (block.mode === "animated") {
-    const selectedVariation = block.variations[editorUiState.selectedVariationIndex] || block.variations[0];
+    const selectedChunk = block.animationChunks[editorUiState.selectedChunkIndex] || block.animationChunks[0];
     return `
       <div class="weiqi-sequence-panel">
         <div class="category-card-head">
           <div>
-            <p class="structured-block-label">Animation versions</p>
-            <h3>${escapeHtml(selectedVariation?.label || "Variation")}</h3>
+            <p class="structured-block-label">Animation chunks</p>
+            <h3>${escapeHtml(selectedChunk?.label || "Chunk")}</h3>
           </div>
-          <button type="button" class="secondary-ink" data-action="add-variation" data-content-block-index="${blockIndex}">Add version</button>
+          <button type="button" class="secondary-ink" data-action="add-animation-chunk" data-content-block-index="${blockIndex}">Add chunk</button>
         </div>
         <div class="weiqi-sequence-list">
-          ${block.variations
+          ${block.animationChunks
             .map(
-              (variation, index) => `
-                <button type="button" class="weiqi-sequence-chip ${index === editorUiState.selectedVariationIndex ? "is-active" : ""}" data-action="select-variation-editor" data-content-block-index="${blockIndex}" data-variation-index="${index}">
-                  ${escapeHtml(variation.label)} <span>${variation.moves.length} moves</span>
-                </button>
-              `
-            )
-            .join("")}
-        </div>
-        <label class="full-width">
-          <span>Version label</span>
-          <input data-action="rename-variation" data-content-block-index="${blockIndex}" value="${escapeAttribute(selectedVariation?.label || "")}" />
-        </label>
-        <div class="weiqi-sequence-actions">
-          <button type="button" class="secondary-ink" data-action="remove-last-sequence-move" data-content-block-index="${blockIndex}">Undo move</button>
-          <button type="button" class="secondary-ink" data-action="clear-sequence" data-content-block-index="${blockIndex}">Clear version</button>
-          ${
-            block.variations.length > 1
-              ? `<button type="button" class="danger" data-action="delete-variation" data-content-block-index="${blockIndex}">Delete version</button>`
-              : ""
-          }
-        </div>
-        <ol class="weiqi-move-list">${renderMoveList(selectedVariation?.moves || [])}</ol>
-      </div>
-    `;
-  }
-
-  if (block.mode === "puzzle") {
-    const selectedFailure = block.failureSequences[editorUiState.selectedFailureIndex] || block.failureSequences[0];
-    return `
-      <div class="weiqi-sequence-panel">
-        <div>
-          <p class="structured-block-label">Success line</p>
-          <div class="weiqi-sequence-actions">
-            <button type="button" class="secondary-ink" data-action="remove-last-success-move" data-content-block-index="${blockIndex}">Undo success move</button>
-            <button type="button" class="secondary-ink" data-action="clear-success" data-content-block-index="${blockIndex}">Clear success</button>
-          </div>
-          <ol class="weiqi-move-list">${renderMoveList(block.successSequence)}</ol>
-        </div>
-        <div class="category-card-head">
-          <div>
-            <p class="structured-block-label">Failure lines</p>
-            <h3>${escapeHtml(selectedFailure?.label || "Failure")}</h3>
-          </div>
-          <button type="button" class="secondary-ink" data-action="add-failure-sequence" data-content-block-index="${blockIndex}">Add failure</button>
-        </div>
-        <div class="weiqi-sequence-list">
-          ${block.failureSequences
-            .map(
-              (failureSequence, index) => `
-                <button type="button" class="weiqi-sequence-chip ${index === editorUiState.selectedFailureIndex ? "is-active" : ""}" data-action="select-failure-sequence" data-content-block-index="${blockIndex}" data-failure-index="${index}">
-                  ${escapeHtml(failureSequence.label)} <span>${failureSequence.moves.length} moves</span>
+              (chunk, index) => `
+                <button type="button" class="weiqi-sequence-chip ${index === editorUiState.selectedChunkIndex ? "is-active" : ""}" data-action="select-animation-chunk" data-content-block-index="${blockIndex}" data-chunk-index="${index}">
+                  ${escapeHtml(chunk.label)} <span>${chunk.moves.length} moves</span>
                 </button>
               `
             )
             .join("")}
         </div>
         ${
-          selectedFailure
+          selectedChunk
             ? `
               <label class="full-width">
-                <span>Failure label</span>
-                <input data-action="rename-failure-sequence" data-content-block-index="${blockIndex}" value="${escapeAttribute(selectedFailure.label || "")}" />
+                <span>Chunk label</span>
+                <input data-action="rename-animation-chunk" data-content-block-index="${blockIndex}" value="${escapeAttribute(selectedChunk.label || "")}" />
               </label>
               <label class="full-width">
-                <span>Failure message</span>
-                <textarea data-action="edit-failure-message" data-content-block-index="${blockIndex}" rows="3">${escapeHtml(selectedFailure.message || "")}</textarea>
+                <span>Dynamic caption</span>
+                <textarea data-action="edit-animation-caption" data-content-block-index="${blockIndex}" rows="3">${escapeHtml(selectedChunk.caption || "")}</textarea>
               </label>
               <div class="weiqi-sequence-actions">
-                <button type="button" class="secondary-ink" data-action="remove-last-failure-move" data-content-block-index="${blockIndex}">Undo failure move</button>
-                <button type="button" class="secondary-ink" data-action="clear-failure-sequence" data-content-block-index="${blockIndex}">Clear failure</button>
+                <button type="button" class="secondary-ink" data-action="move-animation-chunk-up" data-content-block-index="${blockIndex}">Move up</button>
+                <button type="button" class="secondary-ink" data-action="move-animation-chunk-down" data-content-block-index="${blockIndex}">Move down</button>
+                <button type="button" class="secondary-ink" data-action="remove-last-sequence-move" data-content-block-index="${blockIndex}">Undo move</button>
+                <button type="button" class="secondary-ink" data-action="clear-sequence" data-content-block-index="${blockIndex}">Clear chunk</button>
                 ${
-                  block.failureSequences.length > 1
-                    ? `<button type="button" class="danger" data-action="delete-failure-sequence" data-content-block-index="${blockIndex}">Delete failure</button>`
+                  block.animationChunks.length > 1
+                    ? `<button type="button" class="danger" data-action="delete-animation-chunk" data-content-block-index="${blockIndex}">Delete chunk</button>`
                     : ""
                 }
               </div>
-              <ol class="weiqi-move-list">${renderMoveList(selectedFailure.moves || [])}</ol>
+              <div class="weiqi-sequence-actions">
+                <button type="button" class="secondary-ink" data-action="select-animation-move" data-content-block-index="${blockIndex}" data-move-index="0">Preview start</button>
+              </div>
+              <ol class="weiqi-move-list">${renderAnimationMoveList(selectedChunk.moves || [], editorUiState.selectedMoveIndex, blockIndex)}</ol>
             `
-            : `<p class="weiqi-editor-hint">Add a failure line, then place moves on the board.</p>`
+            : `<p class="weiqi-editor-hint">Add a chunk, then place moves on the board.</p>`
+        }
+      </div>
+    `;
+  }
+
+  if (block.mode === "puzzle") {
+    const selectedBranch = block.branches[editorUiState.selectedBranchIndex] || block.branches[0];
+    return `
+      <div class="weiqi-sequence-panel">
+        <div class="category-card-head">
+          <div>
+            <p class="structured-block-label">Puzzle branches</p>
+            <h3>${escapeHtml(selectedBranch?.label || "Branch")}</h3>
+          </div>
+          <button type="button" class="secondary-ink" data-action="add-puzzle-branch" data-content-block-index="${blockIndex}">Add branch</button>
+        </div>
+        <div class="weiqi-sequence-list">
+          ${block.branches
+            .map(
+              (branch, index) => `
+                <button type="button" class="weiqi-sequence-chip ${index === editorUiState.selectedBranchIndex ? "is-active" : ""}" data-action="select-puzzle-branch" data-content-block-index="${blockIndex}" data-branch-index="${index}">
+                  ${escapeHtml(branch.label)} <span>${branch.moves.length} moves • ${escapeHtml(branch.outcome)}</span>
+                </button>
+              `
+            )
+            .join("")}
+        </div>
+        ${
+          selectedBranch
+            ? `
+              <label class="full-width">
+                <span>Branch label</span>
+                <input data-action="rename-puzzle-branch" data-content-block-index="${blockIndex}" value="${escapeAttribute(selectedBranch.label || "")}" />
+              </label>
+              <label class="full-width">
+                <span>Outcome</span>
+                <select data-action="set-puzzle-branch-outcome" data-content-block-index="${blockIndex}">
+                  <option value="correct" ${selectedBranch.outcome === "correct" ? "selected" : ""}>Correct</option>
+                  <option value="incorrect" ${selectedBranch.outcome === "incorrect" ? "selected" : ""}>Incorrect</option>
+                </select>
+              </label>
+              <label class="full-width">
+                <span>Terminal message</span>
+                <textarea data-action="edit-puzzle-branch-message" data-content-block-index="${blockIndex}" rows="3">${escapeHtml(selectedBranch.message || "")}</textarea>
+              </label>
+              <div class="weiqi-sequence-actions">
+                <button type="button" class="secondary-ink" data-action="remove-last-puzzle-branch-move" data-content-block-index="${blockIndex}">Undo move</button>
+                <button type="button" class="secondary-ink" data-action="clear-puzzle-branch" data-content-block-index="${blockIndex}">Clear branch</button>
+                ${
+                  block.branches.length > 1
+                    ? `<button type="button" class="danger" data-action="delete-puzzle-branch" data-content-block-index="${blockIndex}">Delete branch</button>`
+                    : ""
+                }
+              </div>
+              <ol class="weiqi-move-list">${renderMoveList(selectedBranch.moves || [])}</ol>
+            `
+            : `<p class="weiqi-editor-hint">Add a branch, then place moves on the board.</p>`
         }
       </div>
     `;
@@ -648,8 +716,39 @@ function renderMoveList(moves = []) {
     .join("");
 }
 
+function renderAnimationMoveList(moves = [], selectedMoveIndex, blockIndex) {
+  if (!moves.length) {
+    return `<li class="weiqi-move-empty">No moves yet.</li>`;
+  }
+
+  return moves
+    .map((move, index) => {
+      const moveIndex = index + 1;
+      const markersCount = Array.isArray(move.markers) ? move.markers.length : 0;
+      return `
+        <li>
+          <button
+            type="button"
+            class="weiqi-sequence-chip ${selectedMoveIndex === moveIndex ? "is-active" : ""}"
+            data-action="select-animation-move"
+            data-content-block-index="${blockIndex}"
+            data-move-index="${moveIndex}"
+          >
+            ${moveIndex}. ${escapeHtml(move.color)} at (${move.x}, ${move.y}) <span>${markersCount} marker${markersCount === 1 ? "" : "s"}</span>
+          </button>
+        </li>
+      `;
+    })
+    .join("");
+}
+
 function getWeiqiEditorHint(block, editorUiState, activeSequence) {
   if (editorUiState.layer === "markers") {
+    if (block.mode === "animated") {
+      return editorUiState.selectedMoveIndex
+        ? "Marker mode. Click the board to add transient annotations for the selected move only."
+        : "Marker mode. Select an animation move first, then click the board to annotate that move.";
+    }
     if (editorUiState.markerMode === "label-alpha") {
       return "Marker mode. Click the board to place letter labels that increment A, B, C.";
     }
@@ -663,60 +762,53 @@ function getWeiqiEditorHint(block, editorUiState, activeSequence) {
   }
 
   if (block.mode === "animated" && editorUiState.layer === "variation") {
-    return `Sequence mode. Click the board to append moves to ${activeSequence?.label || "the selected variation"}.`;
+    return `Sequence mode. Click the board to append moves to ${activeSequence?.label || "the selected chunk"}.`;
   }
 
-  if (block.mode === "puzzle" && editorUiState.layer === "success") {
-    return "Success mode. Click the board to build the correct answer sequence.";
+  if (block.mode === "puzzle" && editorUiState.layer === "branch") {
+    return `Branch mode. Click the board to build ${activeSequence?.label || "the selected branch"}, then mark its terminal outcome.`;
   }
 
-  if (block.mode === "puzzle" && editorUiState.layer === "failure") {
-    return `Failure mode. Click the board to build ${activeSequence?.label || "the selected failure line"}.`;
+  if (editorUiState.tool === "alternate") {
+    return "Alternate mode. Click to place stones alternating black and white, starting with black.";
   }
-
   return "Board mode. Click to place stones on the initial position. Use the overview crop box to choose the visible area.";
 }
 
 function getActiveSequence(block, editorUiState) {
   if (block.mode === "animated") {
-    return block.variations[editorUiState.selectedVariationIndex] || block.variations[0] || null;
+    return block.animationChunks[editorUiState.selectedChunkIndex] || block.animationChunks[0] || null;
   }
-  if (block.mode === "puzzle" && editorUiState.layer === "failure") {
-    return block.failureSequences[editorUiState.selectedFailureIndex] || block.failureSequences[0] || null;
-  }
-  if (block.mode === "puzzle" && editorUiState.layer === "success") {
-    return { label: "Success line", moves: block.successSequence || [] };
+  if (block.mode === "puzzle" && editorUiState.layer === "branch") {
+    return block.branches[editorUiState.selectedBranchIndex] || block.branches[0] || null;
   }
   return null;
 }
 
 function getEditorBoardData(block, editorUiState) {
-  const allStones = [...(block.initialPosition || [])];
   const previewSequence = getActiveSequence(block, editorUiState);
   let lastMove = null;
+  let allStones = [...(block.initialPosition || [])];
+  let overlayMarkers = block.markers || [];
 
   if (editorUiState.layer === "variation" && previewSequence) {
+    const playbackState = getAnimatedEditorPlaybackState(block, editorUiState);
+    allStones = [...(block.initialPosition || []), ...playbackState.moves];
+    lastMove = playbackState.lastMove;
+    overlayMarkers = [...(block.markers || []), ...buildSequenceMarkers(previewSequence?.moves || []), ...(playbackState.activeMove?.markers || [])];
+  } else if (editorUiState.layer === "branch" && previewSequence) {
     allStones.push(...previewSequence.moves);
     lastMove = previewSequence.moves[previewSequence.moves.length - 1] || null;
-  } else if (editorUiState.layer === "success" && block.mode === "puzzle") {
-    allStones.push(...(block.successSequence || []));
-    lastMove = block.successSequence[block.successSequence.length - 1] || null;
-  } else if (editorUiState.layer === "failure" && previewSequence) {
-    allStones.push(...previewSequence.moves);
-    lastMove = previewSequence.moves[previewSequence.moves.length - 1] || null;
+    overlayMarkers = [...(block.markers || []), ...buildSequenceMarkers(previewSequence?.moves || [])];
+  } else if (editorUiState.layer === "markers" && block.mode === "animated") {
+    const playbackState = getAnimatedEditorPlaybackState(block, editorUiState);
+    allStones = [...(block.initialPosition || []), ...playbackState.moves];
+    lastMove = playbackState.lastMove;
+    overlayMarkers = [...(block.markers || []), ...(playbackState.activeMove?.markers || [])];
   } else {
     lastMove = block.initialPosition[block.initialPosition.length - 1] || null;
+    overlayMarkers = editorUiState.layer === "markers" ? block.markers || [] : block.markers || [];
   }
-
-  const overlayMarkers =
-    editorUiState.layer === "markers"
-      ? block.markers || []
-      : editorUiState.layer === "variation" || editorUiState.layer === "success" || editorUiState.layer === "failure"
-        ? [
-            ...(block.markers || []),
-            ...buildSequenceMarkers(previewSequence?.moves || []),
-          ]
-        : block.markers || [];
 
   return {
     stones: allStones,
@@ -732,6 +824,32 @@ function buildSequenceMarkers(moves) {
     y: move.y,
     label: String(index + 1),
   }));
+}
+
+function getAnimatedEditorPlaybackState(block, editorUiState) {
+  const chunks = block.animationChunks || [];
+  const selectedChunkIndex = Math.max(0, Math.min(editorUiState.selectedChunkIndex || 0, Math.max(0, chunks.length - 1)));
+  const selectedMoveIndex = Math.max(0, editorUiState.selectedMoveIndex || 0);
+  const moves = [];
+
+  chunks.forEach((chunk, index) => {
+    const chunkMoves = Array.isArray(chunk.moves) ? chunk.moves : [];
+    if (index < selectedChunkIndex) {
+      moves.push(...chunkMoves);
+      return;
+    }
+    if (index === selectedChunkIndex) {
+      moves.push(...chunkMoves.slice(0, selectedMoveIndex));
+    }
+  });
+
+  const activeChunk = chunks[selectedChunkIndex] || null;
+  const activeMove = activeChunk && selectedMoveIndex > 0 ? activeChunk.moves[selectedMoveIndex - 1] || null : null;
+  return {
+    moves,
+    activeMove,
+    lastMove: activeMove || moves[moves.length - 1] || null,
+  };
 }
 
 function extractBlockIndexFromKey(key) {
@@ -766,12 +884,6 @@ function formatMarkerLines(markers = []) {
       }
       return parts.join(" | ");
     })
-    .join("\n");
-}
-
-function formatFailureLines(failureStates = []) {
-  return (Array.isArray(failureStates) ? failureStates : [])
-    .map((failure) => `${failure.x} ${failure.y} | ${failure.message || ""}`.trim())
     .join("\n");
 }
 
@@ -1169,6 +1281,45 @@ function validateStoneProgression(initialPosition, sequence, label) {
   });
 }
 
+function validatePuzzleBranches(initialPosition, branches, labelPrefix = "Puzzle branch") {
+  const normalizedBranches = Array.isArray(branches) ? branches : [];
+
+  normalizedBranches.forEach((branch, branchIndex) => {
+    if (!branch || typeof branch !== "object") {
+      throw new Error(`${labelPrefix} ${branchIndex + 1} is invalid.`);
+    }
+    if (branch.outcome !== "correct" && branch.outcome !== "incorrect") {
+      throw new Error(`${labelPrefix} ${branchIndex + 1} must end in correct or incorrect.`);
+    }
+    if (branch.message != null && typeof branch.message !== "string") {
+      throw new Error(`${labelPrefix} ${branchIndex + 1} message must be a string.`);
+    }
+    validateStoneProgression(initialPosition, branch.moves || [], branch.label || `${labelPrefix} ${branchIndex + 1}`);
+  });
+
+  for (let i = 0; i < normalizedBranches.length; i += 1) {
+    for (let j = i + 1; j < normalizedBranches.length; j += 1) {
+      const a = normalizedBranches[i];
+      const b = normalizedBranches[j];
+      const sharedLength = Math.min(a.moves.length, b.moves.length);
+      let diverged = false;
+
+      for (let k = 0; k < sharedLength; k += 1) {
+        const aMove = a.moves[k];
+        const bMove = b.moves[k];
+        if (!aMove || !bMove || aMove.color !== bMove.color || aMove.x !== bMove.x || aMove.y !== bMove.y) {
+          diverged = true;
+          break;
+        }
+      }
+
+      if (!diverged && (a.moves.length === sharedLength || b.moves.length === sharedLength)) {
+        throw new Error(`Puzzle branches "${a.label || `Branch ${i + 1}`}" and "${b.label || `Branch ${j + 1}`}" cannot end on the same prefix path.`);
+      }
+    }
+  }
+}
+
 function collectContentBlocksFromEditor({ throwOnError = true } = {}) {
   try {
     const cards = [...fields.contentBlockFields.querySelectorAll(".content-block-card")];
@@ -1217,20 +1368,23 @@ function collectContentBlockFromCard(card, index) {
   validateUniqueStonePoints(block.initialPosition, "Initial position");
 
   if (mode === "animated") {
-    block.variations = normalizeAnimatedVariations({
-      variations: JSON.parse(card.querySelector('[data-weiqi-key="variations"]').value || "[]"),
+    block.animationChunks = normalizeAnimatedVariations({
+      animationChunks: JSON.parse(card.querySelector('[data-weiqi-key="animationChunks"]').value || "[]"),
     });
-    block.variations.forEach((variation) => validateStoneProgression(block.initialPosition, variation.moves, variation.label || "Variation"));
+    let priorMoves = [];
+    block.animationChunks.forEach((chunk) => {
+      validateStoneProgression([...block.initialPosition, ...priorMoves], chunk.moves, chunk.label || "Chunk");
+      priorMoves = [...priorMoves, ...(chunk.moves || [])];
+    });
   }
 
   if (mode === "puzzle") {
     block.prompt = card.querySelector('[data-weiqi-key="prompt"]').value.trim();
-    block.successSequence = parseStoneText(card.querySelector('[data-weiqi-key="successSequence"]').value, boardSize, "Success sequence");
-    validateStoneProgression(block.initialPosition, block.successSequence, "Success sequence");
-    block.failureSequences = normalizePuzzleFailureSequences({
-      failureSequences: JSON.parse(card.querySelector('[data-weiqi-key="failureSequences"]').value || "[]"),
+    block.branches = normalizePuzzleBranches({
+      branches: JSON.parse(card.querySelector('[data-weiqi-key="branches"]').value || "[]"),
     });
-    block.failureSequences.forEach((failureSequence) => validateStoneProgression(block.initialPosition, failureSequence.moves || [], failureSequence.label || "Failure sequence"));
+    validatePuzzleBranches(block.initialPosition, block.branches);
+    block.defaultIncorrectMessage = card.querySelector('[data-weiqi-key="defaultIncorrectMessage"]').value.trim();
     block.explanation = card.querySelector('[data-weiqi-key="explanation"]').value.trim();
   }
 
@@ -1319,17 +1473,13 @@ function updateHiddenWeiqiFields(blockIndex, block) {
 
   card.querySelector('[data-weiqi-key="initialPosition"]').value = formatStoneLines(block.initialPosition || []);
   card.querySelector('[data-weiqi-key="markers"]').value = formatMarkerLines(block.markers || []);
-  const variationsField = card.querySelector('[data-weiqi-key="variations"]');
-  if (variationsField) {
-    variationsField.value = JSON.stringify(block.variations || []);
+  const animationChunksField = card.querySelector('[data-weiqi-key="animationChunks"]');
+  if (animationChunksField) {
+    animationChunksField.value = JSON.stringify(block.animationChunks || []);
   }
-  const successField = card.querySelector('[data-weiqi-key="successSequence"]');
-  if (successField) {
-    successField.value = formatStoneLines(block.successSequence || []);
-  }
-  const failureField = card.querySelector('[data-weiqi-key="failureSequences"]');
-  if (failureField) {
-    failureField.value = JSON.stringify(block.failureSequences || []);
+  const branchesField = card.querySelector('[data-weiqi-key="branches"]');
+  if (branchesField) {
+    branchesField.value = JSON.stringify(block.branches || []);
   }
   card.querySelector('[data-weiqi-key="viewWindow"]').value = serializeViewWindow(block.viewWindow);
 }
@@ -1374,10 +1524,8 @@ function handleWeiqiBoardPlacement(blockIndex, boardType, event) {
     placeStoneInInitialPosition(block, coordinate, editorUiState.tool);
   } else if (editorUiState.layer === "variation") {
     appendStoneToVariation(block, editorUiState, coordinate);
-  } else if (editorUiState.layer === "success") {
-    appendStoneToSuccessSequence(block, coordinate);
-  } else if (editorUiState.layer === "failure") {
-    appendStoneToFailureSequence(block, editorUiState, coordinate);
+  } else if (editorUiState.layer === "branch") {
+    appendStoneToPuzzleBranch(block, editorUiState, coordinate);
   }
 
   post.contentBlocks[blockIndex] = normalizeWeiqiBlock(block);
@@ -1394,12 +1542,43 @@ function placeStoneInInitialPosition(block, coordinate, tool) {
     return;
   }
 
-  const color = tool === "white" ? "white" : "black";
+  let color;
+  if (tool === "alternate") {
+    const blackCount = nextStones.filter((s) => s.color === "black").length;
+    const whiteCount = nextStones.filter((s) => s.color === "white").length;
+    color = blackCount <= whiteCount ? "black" : "white";
+  } else {
+    color = tool === "white" ? "white" : "black";
+  }
   nextStones.push({ color, x: coordinate.x, y: coordinate.y });
   block.initialPosition = nextStones;
 }
 
 function placeMarkerOnBlock(block, coordinate, editorUiState) {
+  if (block.mode === "animated") {
+    const chunk = block.animationChunks?.[editorUiState.selectedChunkIndex] || block.animationChunks?.[0];
+    const move = chunk?.moves?.[Math.max(0, (editorUiState.selectedMoveIndex || 1) - 1)];
+    if (!move) {
+      throw new Error("Select an animation move before adding markers.");
+    }
+
+    const nextMarkers = (move.markers || []).filter((marker) => getPointKey(marker) !== getPointKey(coordinate));
+    if (editorUiState.markerMode === "erase") {
+      move.markers = nextMarkers;
+      return;
+    }
+
+    const nextMarker = buildMarkerForMode(nextMarkers, coordinate, editorUiState.markerMode);
+    if (!nextMarker) {
+      move.markers = nextMarkers;
+      return;
+    }
+
+    nextMarkers.push(nextMarker);
+    move.markers = nextMarkers;
+    return;
+  }
+
   const key = getPointKey(coordinate);
   const nextMarkers = (block.markers || []).filter((marker) => getPointKey(marker) !== key);
   if (editorUiState.markerMode === "erase") {
@@ -1483,25 +1662,23 @@ function getNextNumericMarkerLabel(markers) {
 }
 
 function appendStoneToVariation(block, editorUiState, coordinate) {
-  const variation = block.variations[editorUiState.selectedVariationIndex] || block.variations[0];
-  if (!variation) {
+  const chunk = block.animationChunks[editorUiState.selectedChunkIndex] || block.animationChunks[0];
+  if (!chunk) {
     return;
   }
 
-  updateSequenceMoves(block.initialPosition, variation.moves, coordinate, editorUiState.tool);
+  const priorMoves = (block.animationChunks || []).slice(0, editorUiState.selectedChunkIndex).flatMap((entry) => entry.moves || []);
+  updateSequenceMoves([...block.initialPosition, ...priorMoves], chunk.moves, coordinate, editorUiState.tool);
+  editorUiState.selectedMoveIndex = chunk.moves.length;
 }
 
-function appendStoneToSuccessSequence(block, coordinate) {
-  updateSequenceMoves(block.initialPosition, block.successSequence, coordinate, "auto");
-}
-
-function appendStoneToFailureSequence(block, editorUiState, coordinate) {
-  const failureSequence = block.failureSequences[editorUiState.selectedFailureIndex] || block.failureSequences[0];
-  if (!failureSequence) {
+function appendStoneToPuzzleBranch(block, editorUiState, coordinate) {
+  const branch = block.branches[editorUiState.selectedBranchIndex] || block.branches[0];
+  if (!branch) {
     return;
   }
 
-  updateSequenceMoves(block.initialPosition, failureSequence.moves, coordinate, "auto");
+  updateSequenceMoves(block.initialPosition, branch.moves, coordinate, "auto");
 }
 
 function updateSequenceMoves(initialPosition, sequence, coordinate, tool) {
@@ -1555,7 +1732,11 @@ function setWeiqiEditorTool(blockIndex, tool) {
   if (!block) {
     return;
   }
-  getWeiqiEditorState(blockIndex, block).tool = tool;
+  const state = getWeiqiEditorState(blockIndex, block);
+  state.tool = tool;
+  if (block.mode === "static") {
+    state.layer = "initial";
+  }
   renderContentBlockFields(post);
 }
 
@@ -1565,22 +1746,28 @@ function setWeiqiEditorMarkerMode(blockIndex, markerMode) {
   if (!block || !WEIQI_MARKER_MODES.has(markerMode)) {
     return;
   }
-  getWeiqiEditorState(blockIndex, block).markerMode = markerMode;
+  const state = getWeiqiEditorState(blockIndex, block);
+  state.markerMode = markerMode;
+  if (block.mode === "static") {
+    state.layer = "markers";
+  }
   renderContentBlockFields(post);
 }
 
 function addAnimatedVariation(blockIndex) {
   withEditableWeiqiBlock(blockIndex, (block, editorUiState) => {
     editorUiState.isOpen = true;
-    const nextIndex = (block.variations?.length || 0) + 1;
-    block.variations.push({
-      id: `variation-${Date.now()}`,
-      label: `Variation ${nextIndex}`,
+    const nextIndex = (block.animationChunks?.length || 0) + 1;
+    block.animationChunks.push({
+      id: `chunk-${Date.now()}`,
+      label: `Chunk ${nextIndex}`,
+      caption: "",
       moves: [],
     });
-    editorUiState.selectedVariationIndex = block.variations.length - 1;
+    editorUiState.selectedChunkIndex = block.animationChunks.length - 1;
+    editorUiState.selectedMoveIndex = 0;
     editorUiState.layer = "variation";
-  }, "Added animation version");
+  }, "Added animation chunk");
 }
 
 function selectAnimatedVariation(blockIndex, variationIndex) {
@@ -1589,122 +1776,164 @@ function selectAnimatedVariation(blockIndex, variationIndex) {
   if (!block) {
     return;
   }
-  getWeiqiEditorState(blockIndex, block).selectedVariationIndex = variationIndex;
+  const state = getWeiqiEditorState(blockIndex, block);
+  state.selectedChunkIndex = variationIndex;
+  state.selectedMoveIndex = 0;
   renderContentBlockFields(post);
 }
 
 function renameAnimatedVariation(blockIndex, label) {
   withEditableWeiqiBlock(blockIndex, (block, editorUiState) => {
-    const variation = block.variations[editorUiState.selectedVariationIndex] || block.variations[0];
-    if (variation) {
-      variation.label = label.trim() || variation.label;
+    const chunk = block.animationChunks[editorUiState.selectedChunkIndex] || block.animationChunks[0];
+    if (chunk) {
+      chunk.label = label.trim() || chunk.label;
     }
   });
 }
 
 function deleteAnimatedVariation(blockIndex) {
   withEditableWeiqiBlock(blockIndex, (block, editorUiState) => {
-    if (block.variations.length <= 1) {
+    if (block.animationChunks.length <= 1) {
       return;
     }
-    block.variations.splice(editorUiState.selectedVariationIndex, 1);
-    editorUiState.selectedVariationIndex = Math.max(0, editorUiState.selectedVariationIndex - 1);
-  }, "Deleted animation version");
+    block.animationChunks.splice(editorUiState.selectedChunkIndex, 1);
+    editorUiState.selectedChunkIndex = Math.max(0, editorUiState.selectedChunkIndex - 1);
+    editorUiState.selectedMoveIndex = 0;
+  }, "Deleted animation chunk");
 }
 
 function removeLastVariationMove(blockIndex) {
   withEditableWeiqiBlock(blockIndex, (block, editorUiState) => {
-    const variation = block.variations[editorUiState.selectedVariationIndex] || block.variations[0];
-    variation?.moves?.pop();
+    const chunk = block.animationChunks[editorUiState.selectedChunkIndex] || block.animationChunks[0];
+    chunk?.moves?.pop();
+    editorUiState.selectedMoveIndex = Math.min(editorUiState.selectedMoveIndex || 0, chunk?.moves?.length || 0);
   });
 }
 
 function clearVariation(blockIndex) {
   withEditableWeiqiBlock(blockIndex, (block, editorUiState) => {
-    const variation = block.variations[editorUiState.selectedVariationIndex] || block.variations[0];
-    if (variation) {
-      variation.moves = [];
+    const chunk = block.animationChunks[editorUiState.selectedChunkIndex] || block.animationChunks[0];
+    if (chunk) {
+      chunk.moves = [];
+      editorUiState.selectedMoveIndex = 0;
     }
   });
 }
 
-function addFailureSequence(blockIndex) {
+function renameAnimationCaption(blockIndex, caption) {
   withEditableWeiqiBlock(blockIndex, (block, editorUiState) => {
-    editorUiState.isOpen = true;
-    const nextIndex = (block.failureSequences?.length || 0) + 1;
-    block.failureSequences.push({
-      id: `failure-${Date.now()}`,
-      label: `Failure ${nextIndex}`,
-      moves: [],
-      message: "",
-    });
-    editorUiState.selectedFailureIndex = block.failureSequences.length - 1;
-    editorUiState.layer = "failure";
-  }, "Added failure line");
+    const chunk = block.animationChunks[editorUiState.selectedChunkIndex] || block.animationChunks[0];
+    if (chunk) {
+      chunk.caption = caption;
+    }
+  });
 }
 
-function selectFailureSequence(blockIndex, failureIndex) {
+function moveAnimationChunk(blockIndex, direction) {
+  withEditableWeiqiBlock(blockIndex, (block, editorUiState) => {
+    const fromIndex = editorUiState.selectedChunkIndex;
+    const toIndex = direction === "up" ? fromIndex - 1 : fromIndex + 1;
+    if (toIndex < 0 || toIndex >= (block.animationChunks || []).length) {
+      return;
+    }
+    const [chunk] = block.animationChunks.splice(fromIndex, 1);
+    block.animationChunks.splice(toIndex, 0, chunk);
+    editorUiState.selectedChunkIndex = toIndex;
+  }, `Moved animation chunk ${direction}`);
+}
+
+function selectAnimationMove(blockIndex, moveIndex) {
   const post = getCurrentPost();
   const block = normalizeWeiqiBlock(post?.contentBlocks?.[blockIndex]);
   if (!block) {
     return;
   }
-  getWeiqiEditorState(blockIndex, block).selectedFailureIndex = failureIndex;
+
+  const state = getWeiqiEditorState(blockIndex, block);
+  const chunk = block.animationChunks[state.selectedChunkIndex] || block.animationChunks[0];
+  const maxMoveIndex = Array.isArray(chunk?.moves) ? chunk.moves.length : 0;
+  state.selectedMoveIndex = Math.max(0, Math.min(moveIndex, maxMoveIndex));
   renderContentBlockFields(post);
 }
 
-function renameFailureSequence(blockIndex, label) {
+function addPuzzleBranch(blockIndex) {
   withEditableWeiqiBlock(blockIndex, (block, editorUiState) => {
-    const sequence = block.failureSequences[editorUiState.selectedFailureIndex] || block.failureSequences[0];
-    if (sequence) {
-      sequence.label = label.trim() || sequence.label;
+    editorUiState.isOpen = true;
+    const nextIndex = (block.branches?.length || 0) + 1;
+    block.branches.push({
+      id: `branch-${Date.now()}`,
+      label: `Incorrect branch ${nextIndex}`,
+      moves: [],
+      outcome: "incorrect",
+      message: "",
+    });
+    editorUiState.selectedBranchIndex = block.branches.length - 1;
+    editorUiState.layer = "branch";
+  }, "Added puzzle branch");
+}
+
+function selectPuzzleBranch(blockIndex, branchIndex) {
+  const post = getCurrentPost();
+  const block = normalizeWeiqiBlock(post?.contentBlocks?.[blockIndex]);
+  if (!block) {
+    return;
+  }
+  getWeiqiEditorState(blockIndex, block).selectedBranchIndex = branchIndex;
+  renderContentBlockFields(post);
+}
+
+function renamePuzzleBranch(blockIndex, label) {
+  withEditableWeiqiBlock(blockIndex, (block, editorUiState) => {
+    const branch = block.branches[editorUiState.selectedBranchIndex] || block.branches[0];
+    if (branch) {
+      branch.label = label.trim() || branch.label;
     }
   });
 }
 
-function editFailureMessage(blockIndex, message) {
+function setPuzzleBranchOutcome(blockIndex, outcome) {
   withEditableWeiqiBlock(blockIndex, (block, editorUiState) => {
-    const sequence = block.failureSequences[editorUiState.selectedFailureIndex] || block.failureSequences[0];
-    if (sequence) {
-      sequence.message = message;
+    const branch = block.branches[editorUiState.selectedBranchIndex] || block.branches[0];
+    if (branch) {
+      branch.outcome = outcome === "correct" ? "correct" : "incorrect";
+      if (!branch.label.trim()) {
+        branch.label = branch.outcome === "correct" ? "Correct branch" : "Incorrect branch";
+      }
     }
   });
 }
 
-function deleteFailureSequence(blockIndex) {
+function editPuzzleBranchMessage(blockIndex, message) {
   withEditableWeiqiBlock(blockIndex, (block, editorUiState) => {
-    if (block.failureSequences.length <= 1) {
+    const branch = block.branches[editorUiState.selectedBranchIndex] || block.branches[0];
+    if (branch) {
+      branch.message = message;
+    }
+  });
+}
+
+function deletePuzzleBranch(blockIndex) {
+  withEditableWeiqiBlock(blockIndex, (block, editorUiState) => {
+    if (block.branches.length <= 1) {
       return;
     }
-    block.failureSequences.splice(editorUiState.selectedFailureIndex, 1);
-    editorUiState.selectedFailureIndex = Math.max(0, editorUiState.selectedFailureIndex - 1);
-  }, "Deleted failure line");
+    block.branches.splice(editorUiState.selectedBranchIndex, 1);
+    editorUiState.selectedBranchIndex = Math.max(0, editorUiState.selectedBranchIndex - 1);
+  }, "Deleted puzzle branch");
 }
 
-function removeLastSuccessMove(blockIndex) {
-  withEditableWeiqiBlock(blockIndex, (block) => {
-    block.successSequence.pop();
-  });
-}
-
-function clearSuccessSequence(blockIndex) {
-  withEditableWeiqiBlock(blockIndex, (block) => {
-    block.successSequence = [];
-  });
-}
-
-function removeLastFailureMove(blockIndex) {
+function removeLastPuzzleBranchMove(blockIndex) {
   withEditableWeiqiBlock(blockIndex, (block, editorUiState) => {
-    const sequence = block.failureSequences[editorUiState.selectedFailureIndex] || block.failureSequences[0];
-    sequence?.moves?.pop();
+    const branch = block.branches[editorUiState.selectedBranchIndex] || block.branches[0];
+    branch?.moves?.pop();
   });
 }
 
-function clearFailureSequence(blockIndex) {
+function clearPuzzleBranch(blockIndex) {
   withEditableWeiqiBlock(blockIndex, (block, editorUiState) => {
-    const sequence = block.failureSequences[editorUiState.selectedFailureIndex] || block.failureSequences[0];
-    if (sequence) {
-      sequence.moves = [];
+    const branch = block.branches[editorUiState.selectedBranchIndex] || block.branches[0];
+    if (branch) {
+      branch.moves = [];
     }
   });
 }
@@ -2043,9 +2272,12 @@ function validateBeforeSave() {
       });
 
       validateUniqueStonePoints(normalizedBlock.initialPosition || [], "Initial position");
-      normalizedBlock.variations.forEach((variation) => validateStoneProgression(normalizedBlock.initialPosition || [], variation.moves || [], variation.label));
-      validateStoneProgression(normalizedBlock.initialPosition || [], normalizedBlock.successSequence || [], "Success sequence");
-      normalizedBlock.failureSequences.forEach((sequence) => validateStoneProgression(normalizedBlock.initialPosition || [], sequence.moves || [], sequence.label));
+      let priorAnimationMoves = [];
+      normalizedBlock.animationChunks.forEach((chunk) => {
+        validateStoneProgression([...((normalizedBlock.initialPosition || [])), ...priorAnimationMoves], chunk.moves || [], chunk.label);
+        priorAnimationMoves = [...priorAnimationMoves, ...(chunk.moves || [])];
+      });
+      validatePuzzleBranches(normalizedBlock.initialPosition || [], normalizedBlock.branches || []);
 
       (normalizedBlock.markers || []).forEach((marker, markerIndex) => {
         assertCoordinateInBounds(marker.x, marker.y, Number(normalizedBlock.boardSize), `marker ${markerIndex + 1}`);
@@ -2054,9 +2286,9 @@ function validateBeforeSave() {
         }
       });
 
-      normalizedBlock.failureSequences.forEach((sequence, sequenceIndex) => {
-        if (sequence.message != null && typeof sequence.message !== "string") {
-          throw new Error(`Post ${index + 1} block ${blockIndex + 1} failure ${sequenceIndex + 1} needs a string message.`);
+      normalizedBlock.branches.forEach((branch, branchIndex) => {
+        if (branch.message != null && typeof branch.message !== "string") {
+          throw new Error(`Post ${index + 1} block ${blockIndex + 1} branch ${branchIndex + 1} needs a string message.`);
         }
       });
 
@@ -2077,26 +2309,26 @@ function validateBeforeSave() {
       }
 
       normalizeViewWindow(normalizedBlock.boardSize, normalizedBlock.viewWindow);
-      normalizedBlock.failureSequences.forEach((sequence) => {
-        (sequence.moves || []).forEach((stone, stoneIndex) => {
+      normalizedBlock.branches.forEach((branch, branchIndex) => {
+        (branch.moves || []).forEach((stone, stoneIndex) => {
           if (!WEIQI_STONE_COLORS.has(stone.color)) {
-            throw new Error(`Post ${index + 1} block ${blockIndex + 1} failure move ${stoneIndex + 1} has an invalid color.`);
+            throw new Error(`Post ${index + 1} block ${blockIndex + 1} branch ${branchIndex + 1} move ${stoneIndex + 1} has an invalid color.`);
           }
-          assertCoordinateInBounds(stone.x, stone.y, Number(normalizedBlock.boardSize), `failure move ${stoneIndex + 1}`);
+          assertCoordinateInBounds(stone.x, stone.y, Number(normalizedBlock.boardSize), `branch ${branchIndex + 1} move ${stoneIndex + 1}`);
         });
       });
-      normalizedBlock.successSequence.forEach((stone, stoneIndex) => {
-        if (!WEIQI_STONE_COLORS.has(stone.color)) {
-          throw new Error(`Post ${index + 1} block ${blockIndex + 1} success move ${stoneIndex + 1} has an invalid color.`);
-        }
-        assertCoordinateInBounds(stone.x, stone.y, Number(normalizedBlock.boardSize), `success move ${stoneIndex + 1}`);
-      });
-      normalizedBlock.variations.forEach((variation) => {
-        (variation.moves || []).forEach((stone, stoneIndex) => {
+      normalizedBlock.animationChunks.forEach((chunk) => {
+        (chunk.moves || []).forEach((stone, stoneIndex) => {
           if (!WEIQI_STONE_COLORS.has(stone.color)) {
-            throw new Error(`Post ${index + 1} block ${blockIndex + 1} variation move ${stoneIndex + 1} has an invalid color.`);
+            throw new Error(`Post ${index + 1} block ${blockIndex + 1} animation move ${stoneIndex + 1} has an invalid color.`);
           }
-          assertCoordinateInBounds(stone.x, stone.y, Number(normalizedBlock.boardSize), `variation move ${stoneIndex + 1}`);
+          assertCoordinateInBounds(stone.x, stone.y, Number(normalizedBlock.boardSize), `animation move ${stoneIndex + 1}`);
+          (stone.markers || []).forEach((marker, markerIndex) => {
+            assertCoordinateInBounds(marker.x, marker.y, Number(normalizedBlock.boardSize), `animation marker ${markerIndex + 1}`);
+            if (marker.shape && !WEIQI_MARKER_SHAPES.has(marker.shape)) {
+              throw new Error(`Post ${index + 1} block ${blockIndex + 1} animation marker ${markerIndex + 1} has an invalid shape.`);
+            }
+          });
         });
       });
     });

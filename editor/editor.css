@@ -548,6 +548,14 @@ button.danger:hover {
   color: var(--ink);
 }
 
+.weiqi-dynamic-caption {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-left: var(--stroke) solid rgba(16, 26, 40, 0.28);
+  background: rgba(16, 26, 40, 0.05);
+  color: var(--ink);
+}
+
 .weiqi-prompt {
   margin-top: 8px;
 }
@@ -764,6 +772,7 @@ button.danger:hover {
 
 .weiqi-editor-toolbar {
   justify-content: space-between;
+  align-items: center;
 }
 
 .weiqi-editor-board-grid {
@@ -835,10 +844,67 @@ button.danger:hover {
   border-color: rgba(16, 26, 40, 0.52);
 }
 
+.weiqi-toolbox {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  border: var(--stroke) solid var(--line);
+  background: rgba(245, 248, 252, 0.54);
+  box-shadow: 1px 1px 0 rgba(16, 26, 40, 0.2);
+}
+
+.weiqi-tool-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  min-height: 42px;
+  padding: 0 14px;
+  border: 0;
+  border-right: 1px solid var(--line-soft);
+  background: transparent;
+  color: var(--ink);
+  clip-path: none;
+  box-shadow: none;
+}
+
+.weiqi-tool-button:last-child {
+  border-right: 0;
+}
+
+.weiqi-tool-button:hover {
+  background: rgba(245, 248, 252, 0.84);
+  border-color: var(--line-soft);
+}
+
+.weiqi-tool-button.is-active {
+  background: rgba(33, 93, 143, 0.16);
+  color: var(--accent);
+  border-color: var(--line-soft);
+}
+
+.weiqi-tool-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.2em;
+  font-size: 1.32rem;
+  line-height: 1;
+  font-weight: 700;
+}
+
 .weiqi-move-list {
   margin: 0;
   padding-left: 22px;
   color: var(--muted);
+}
+
+.weiqi-move-list li + li {
+  margin-top: 8px;
+}
+
+.weiqi-move-list .weiqi-sequence-chip {
+  width: 100%;
 }
 
 .weiqi-move-empty {

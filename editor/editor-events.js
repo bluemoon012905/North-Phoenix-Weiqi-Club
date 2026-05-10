@@ -192,18 +192,28 @@ fields.contentBlockFields.addEventListener("input", (event) => {
 fields.contentBlockFields.addEventListener("change", (event) => {
   const blockIndex = Number(event.target.dataset.contentBlockIndex);
 
-  if (event.target.matches('[data-action="rename-variation"]')) {
+  if (event.target.matches('[data-action="rename-animation-chunk"]')) {
     renameAnimatedVariation(blockIndex, event.target.value);
     return;
   }
 
-  if (event.target.matches('[data-action="rename-failure-sequence"]')) {
-    renameFailureSequence(blockIndex, event.target.value);
+  if (event.target.matches('[data-action="edit-animation-caption"]')) {
+    renameAnimationCaption(blockIndex, event.target.value);
     return;
   }
 
-  if (event.target.matches('[data-action="edit-failure-message"]')) {
-    editFailureMessage(blockIndex, event.target.value);
+  if (event.target.matches('[data-action="rename-puzzle-branch"]')) {
+    renamePuzzleBranch(blockIndex, event.target.value);
+    return;
+  }
+
+  if (event.target.matches('[data-action="edit-puzzle-branch-message"]')) {
+    editPuzzleBranchMessage(blockIndex, event.target.value);
+    return;
+  }
+
+  if (event.target.matches('[data-action="set-puzzle-branch-outcome"]')) {
+    setPuzzleBranchOutcome(blockIndex, event.target.value);
     return;
   }
 
@@ -248,16 +258,28 @@ fields.contentBlockFields.addEventListener("click", (event) => {
         setWeiqiEditorMarkerMode(blockIndex, actionButton.dataset.editorMarkerMode);
         return;
       }
-      if (actionButton.dataset.action === "add-variation") {
+      if (actionButton.dataset.action === "add-animation-chunk") {
         addAnimatedVariation(blockIndex);
         return;
       }
-      if (actionButton.dataset.action === "select-variation-editor") {
-        selectAnimatedVariation(blockIndex, Number(actionButton.dataset.variationIndex));
+      if (actionButton.dataset.action === "select-animation-chunk") {
+        selectAnimatedVariation(blockIndex, Number(actionButton.dataset.chunkIndex));
         return;
       }
-      if (actionButton.dataset.action === "delete-variation") {
+      if (actionButton.dataset.action === "delete-animation-chunk") {
         deleteAnimatedVariation(blockIndex);
+        return;
+      }
+      if (actionButton.dataset.action === "move-animation-chunk-up") {
+        moveAnimationChunk(blockIndex, "up");
+        return;
+      }
+      if (actionButton.dataset.action === "move-animation-chunk-down") {
+        moveAnimationChunk(blockIndex, "down");
+        return;
+      }
+      if (actionButton.dataset.action === "select-animation-move") {
+        selectAnimationMove(blockIndex, Number(actionButton.dataset.moveIndex));
         return;
       }
       if (actionButton.dataset.action === "remove-last-sequence-move") {
@@ -268,32 +290,24 @@ fields.contentBlockFields.addEventListener("click", (event) => {
         clearVariation(blockIndex);
         return;
       }
-      if (actionButton.dataset.action === "add-failure-sequence") {
-        addFailureSequence(blockIndex);
+      if (actionButton.dataset.action === "add-puzzle-branch") {
+        addPuzzleBranch(blockIndex);
         return;
       }
-      if (actionButton.dataset.action === "select-failure-sequence") {
-        selectFailureSequence(blockIndex, Number(actionButton.dataset.failureIndex));
+      if (actionButton.dataset.action === "select-puzzle-branch") {
+        selectPuzzleBranch(blockIndex, Number(actionButton.dataset.branchIndex));
         return;
       }
-      if (actionButton.dataset.action === "delete-failure-sequence") {
-        deleteFailureSequence(blockIndex);
+      if (actionButton.dataset.action === "delete-puzzle-branch") {
+        deletePuzzleBranch(blockIndex);
         return;
       }
-      if (actionButton.dataset.action === "remove-last-success-move") {
-        removeLastSuccessMove(blockIndex);
+      if (actionButton.dataset.action === "remove-last-puzzle-branch-move") {
+        removeLastPuzzleBranchMove(blockIndex);
         return;
       }
-      if (actionButton.dataset.action === "clear-success") {
-        clearSuccessSequence(blockIndex);
-        return;
-      }
-      if (actionButton.dataset.action === "remove-last-failure-move") {
-        removeLastFailureMove(blockIndex);
-        return;
-      }
-      if (actionButton.dataset.action === "clear-failure-sequence") {
-        clearFailureSequence(blockIndex);
+      if (actionButton.dataset.action === "clear-puzzle-branch") {
+        clearPuzzleBranch(blockIndex);
         return;
       }
     } catch (error) {

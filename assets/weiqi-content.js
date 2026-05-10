@@ -63,20 +63,57 @@ const BlueshellWeiqi = (() => {
     return raw;
   }
 
-  function normalizeAnimatedVariations(block) {
+  function normalizeMarker(marker) {
+    if (!marker || typeof marker !== "object") {
+      return null;
+    }
+
+    return {
+      x: Number.isInteger(marker.x) ? marker.x : 0,
+      y: Number.isInteger(marker.y) ? marker.y : 0,
+      ...(typeof marker.label === "string" && marker.label ? { label: marker.label } : {}),
+      ...(typeof marker.shape === "string" && marker.shape ? { shape: marker.shape } : {}),
+    };
+  }
+
+  function normalizeMove(move) {
+    if (!move || typeof move !== "object") {
+      return null;
+    }
+
+    return {
+      color: move.color === "white" ? "white" : "black",
+      x: Number.isInteger(move.x) ? move.x : 0,
+      y: Number.isInteger(move.y) ? move.y : 0,
+      markers: Array.isArray(move.markers) ? move.markers.map(normalizeMarker).filter(Boolean) : [],
+    };
+  }
+
+  function normalizeAnimationChunks(block) {
+    if (Array.isArray(block.animationChunks) && block.animationChunks.length) {
+      return block.animationChunks.map((chunk, index) => ({
+        id: chunk.id || `chunk-${index + 1}`,
+        label: chunk.label || `Chunk ${index + 1}`,
+        caption: typeof chunk.caption === "string" ? chunk.caption : "",
+        moves: Array.isArray(chunk.moves) ? chunk.moves.map(normalizeMove).filter(Boolean) : [],
+      }));
+    }
+
     if (Array.isArray(block.variations) && block.variations.length) {
       return block.variations.map((variation, index) => ({
-        id: variation.id || `variation-${index + 1}`,
-        label: variation.label || `Variation ${index + 1}`,
-        moves: Array.isArray(variation.moves) ? variation.moves : [],
+        id: variation.id || `chunk-${index + 1}`,
+        label: variation.label || `Chunk ${index + 1}`,
+        caption: typeof variation.caption === "string" ? variation.caption : "",
+        moves: Array.isArray(variation.moves) ? variation.moves.map(normalizeMove).filter(Boolean) : [],
       }));
     }
 
     return [
       {
-        id: "variation-1",
+        id: "chunk-1",
         label: "Main line",
-        moves: Array.isArray(block.moves) ? block.moves : [],
+        caption: "",
+        moves: Array.isArray(block.moves) ? block.moves.map(normalizeMove).filter(Boolean) : [],
       },
     ];
   }
@@ -107,6 +144,42 @@ const BlueshellWeiqi = (() => {
     return [];
   }
 
+  function normalizePuzzleBranches(block) {
+    if (Array.isArray(block.branches) && block.branches.length) {
+      return block.branches.map((branch, index) => ({
+        id: branch.id || `branch-${index + 1}`,
+        label: branch.label || `Branch ${index + 1}`,
+        moves: Array.isArray(branch.moves) ? branch.moves : [],
+        outcome: branch.outcome === "correct" ? "correct" : "incorrect",
+        message: typeof branch.message === "string" ? branch.message : "",
+      }));
+    }
+
+    const branches = [];
+    const successSequence = normalizePuzzleSuccessSequence(block);
+    if (successSequence.length) {
+      branches.push({
+        id: "branch-1",
+        label: "Correct line",
+        moves: successSequence,
+        outcome: "correct",
+        message: "",
+      });
+    }
+
+    normalizePuzzleFailureSequences(block).forEach((sequence, index) => {
+      branches.push({
+        id: sequence.id || `branch-${branches.length + 1}`,
+        label: sequence.label || `Incorrect ${index + 1}`,
+        moves: Array.isArray(sequence.moves) ? sequence.moves : [],
+        outcome: "incorrect",
+        message: typeof sequence.message === "string" ? sequence.message : "",
+      });
+    });
+
+    return branches;
+  }
+
   function normalizeWeiqiBlock(block) {
     if (!block || block.type !== "weiqi") {
       return block;
@@ -117,12 +190,17 @@ const BlueshellWeiqi = (() => {
       ...block,
       boardSize,
       coordinateSystem: block.coordinateSystem || "zero-based",
-      initialPosition: Array.isArray(block.initialPosition) ? block.initialPosition : [],
-      markers: Array.isArray(block.markers) ? block.markers : [],
+      initialPosition: Array.isArray(block.initialPosition) ? block.initialPosition.map(normalizeMove).filter(Boolean) : [],
+      markers: Array.isArray(block.markers) ? block.markers.map(normalizeMarker).filter(Boolean) : [],
       viewWindow: normalizeViewWindow(boardSize, block.viewWindow),
-      variations: normalizeAnimatedVariations(block),
+      animationChunks: normalizeAnimationChunks(block),
       successSequence: normalizePuzzleSuccessSequence(block),
       failureSequences: normalizePuzzleFailureSequences(block),
+      branches: normalizePuzzleBranches(block),
+      defaultIncorrectMessage:
+        typeof block.defaultIncorrectMessage === "string" && block.defaultIncorrectMessage.trim()
+          ? block.defaultIncorrectMessage
+          : "That move does not match an authored variation.",
     };
   }
 
@@ -157,6 +235,7 @@ const BlueshellWeiqi = (() => {
       block.mode === "puzzle" && block.explanation
         ? `<div class="weiqi-explanation hidden" data-weiqi-explanation>${escapeHtml(block.explanation)}</div>`
         : "";
+    const dynamicCaption = block.mode === "animated" ? `<p class="weiqi-dynamic-caption hidden" data-weiqi-dynamic-caption></p>` : "";
     const controls = renderControls(block);
 
     return `
@@ -174,6 +253,7 @@ const BlueshellWeiqi = (() => {
             getAriaLabel(block)
           )}" tabindex="${block.mode === "puzzle" ? "0" : "-1"}"></div>
         </div>
+        ${dynamicCaption}
         ${controls}
         <p class="weiqi-status" data-weiqi-status></p>
         ${explanation}
@@ -183,20 +263,20 @@ const BlueshellWeiqi = (() => {
 
   function renderControls(block) {
     if (block.mode === "animated") {
-      const variationButtons =
-        block.variations.length > 1
-          ? `<div class="weiqi-variation-tabs">${block.variations
+      const chunkButtons =
+        block.animationChunks.length > 1
+          ? `<div class="weiqi-variation-tabs">${block.animationChunks
               .map(
-                (variation, index) =>
-                  `<button type="button" class="secondary-ink" data-weiqi-action="select-variation" data-variation-index="${index}">${escapeHtml(
-                    variation.label
+                (chunk, index) =>
+                  `<button type="button" class="secondary-ink" data-weiqi-action="select-chunk" data-chunk-index="${index}">${escapeHtml(
+                    chunk.label
                   )}</button>`
               )
               .join("")}</div>`
           : "";
 
       return `
-        ${variationButtons}
+        ${chunkButtons}
         <div class="weiqi-controls">
           <button type="button" class="secondary-ink" data-weiqi-action="prev">Previous</button>
           <button type="button" class="secondary-ink" data-weiqi-action="next">Next</button>
@@ -209,7 +289,7 @@ const BlueshellWeiqi = (() => {
     if (block.mode === "puzzle") {
       return `
         <div class="weiqi-controls">
-          <button type="button" class="secondary-ink" data-weiqi-action="hint">Show target count</button>
+          <button type="button" class="secondary-ink" data-weiqi-action="hint">Show branch count</button>
           <button type="button" class="secondary-ink" data-weiqi-action="reset">Reset puzzle</button>
         </div>
       `;
@@ -230,8 +310,8 @@ const BlueshellWeiqi = (() => {
         const state = {
           block,
           moveIndex: 0,
-          selectedVariationIndex: 0,
-          appliedSolution: [],
+          selectedChunkIndex: 0,
+          appliedMoves: [],
           status: "",
           solved: false,
           failed: false,
@@ -287,23 +367,28 @@ const BlueshellWeiqi = (() => {
 
   function handleAction(element, state, action, trigger) {
     if (state.block.mode === "animated") {
-      const variations = state.block.variations || [];
-      const activeVariation = variations[state.selectedVariationIndex] || variations[0] || { moves: [] };
-      const totalMoves = Array.isArray(activeVariation.moves) ? activeVariation.moves.length : 0;
+      const chunks = state.block.animationChunks || [];
+      const activeChunk = chunks[state.selectedChunkIndex] || chunks[0] || { moves: [] };
+      const totalMoves = getChunkMoveCount(activeChunk);
 
-      if (action === "select-variation") {
-        state.selectedVariationIndex = Number(trigger.dataset.variationIndex) || 0;
+      if (action === "select-chunk") {
+        state.selectedChunkIndex = Number(trigger.dataset.chunkIndex) || 0;
         state.moveIndex = 0;
         stopAutoplay(state);
       } else if (action === "prev") {
-        state.moveIndex = Math.max(0, state.moveIndex - 1);
+        if (state.moveIndex > 0) {
+          state.moveIndex -= 1;
+        } else if (state.selectedChunkIndex > 0) {
+          state.selectedChunkIndex -= 1;
+          state.moveIndex = getChunkMoveCount(chunks[state.selectedChunkIndex] || chunks[0]);
+        }
         stopAutoplay(state);
       } else if (action === "next") {
-        state.moveIndex = Math.min(totalMoves, state.moveIndex + 1);
-        if (state.moveIndex >= totalMoves) {
+        if (!advanceAnimatedStep(state)) {
           stopAutoplay(state);
         }
       } else if (action === "reset") {
+        state.selectedChunkIndex = 0;
         state.moveIndex = 0;
         stopAutoplay(state);
       } else if (action === "autoplay") {
@@ -319,36 +404,39 @@ const BlueshellWeiqi = (() => {
 
     if (state.block.mode === "puzzle") {
       if (action === "reset") {
-        state.appliedSolution = [];
+        state.appliedMoves = [];
         state.status = "";
         state.solved = false;
         state.failed = false;
       } else if (action === "hint") {
-        state.status = `Success line length: ${(state.block.successSequence || []).length} move${(state.block.successSequence || []).length === 1 ? "" : "s"}.`;
+        const correctCount = (state.block.branches || []).filter((branch) => branch.outcome === "correct").length;
+        const incorrectCount = (state.block.branches || []).filter((branch) => branch.outcome !== "correct").length;
+        state.status = `${correctCount} correct ending${correctCount === 1 ? "" : "s"}, ${incorrectCount} incorrect ending${incorrectCount === 1 ? "" : "s"}.`;
       }
       renderBlock(element, state);
     }
   }
 
   function startAutoplay(element, state) {
-    const activeVariation = (state.block.variations || [])[state.selectedVariationIndex] || { moves: [] };
-    const totalMoves = Array.isArray(activeVariation.moves) ? activeVariation.moves.length : 0;
-    if (!totalMoves) {
+    const chunks = state.block.animationChunks || [];
+    if (!chunks.length || !chunks.some((chunk) => getChunkMoveCount(chunk))) {
       return;
     }
 
-    if (state.moveIndex >= totalMoves) {
+    if (
+      state.selectedChunkIndex >= chunks.length - 1 &&
+      state.moveIndex >= getChunkMoveCount(chunks[chunks.length - 1] || { moves: [] })
+    ) {
+      state.selectedChunkIndex = 0;
       state.moveIndex = 0;
     }
 
     state.autoplayTimer = window.setInterval(() => {
-      if (state.moveIndex >= totalMoves) {
+      if (!advanceAnimatedStep(state)) {
         stopAutoplay(state);
         renderBlock(element, state);
         return;
       }
-
-      state.moveIndex += 1;
       renderBlock(element, state);
     }, 1100);
   }
@@ -370,35 +458,49 @@ const BlueshellWeiqi = (() => {
       return;
     }
 
-    const occupied = buildStoneMap(state.block.initialPosition, state.appliedSolution);
+    const occupied = buildStoneMap(state.block.initialPosition, state.appliedMoves);
     if (occupied.has(getPointKey(coordinate))) {
       state.status = "That point is already occupied.";
       renderBlock(boardElement.closest(BLOCK_SELECTOR), state);
       return;
     }
 
-    const successSequence = state.block.successSequence || [];
-    const expectedMove = successSequence[state.appliedSolution.length];
-    if (!expectedMove) {
-      state.status = "This puzzle does not have a success sequence yet.";
+    const branches = state.block.branches || [];
+    if (!branches.length) {
+      state.status = "This puzzle does not have any authored branches yet.";
       renderBlock(boardElement.closest(BLOCK_SELECTOR), state);
       return;
     }
 
-    if (expectedMove.x === coordinate.x && expectedMove.y === coordinate.y) {
-      state.appliedSolution = [...state.appliedSolution, expectedMove];
-      state.status = `Correct move ${state.appliedSolution.length} of ${successSequence.length}.`;
-      if (state.appliedSolution.length === successSequence.length) {
+    const matchingBranches = getMatchingPuzzleBranches(branches, state.appliedMoves);
+    const nextMoveIndex = state.appliedMoves.length;
+    const nextBranches = matchingBranches.filter((branch) => {
+      const move = branch.moves?.[nextMoveIndex];
+      return move && move.x === coordinate.x && move.y === coordinate.y;
+    });
+
+    if (!nextBranches.length) {
+      state.failed = true;
+      state.status = state.block.defaultIncorrectMessage || "That move does not solve the puzzle.";
+      renderBlock(boardElement.closest(BLOCK_SELECTOR), state);
+      return;
+    }
+
+    const nextMove = nextBranches[0].moves[nextMoveIndex];
+    state.appliedMoves = [...state.appliedMoves, nextMove];
+    const exactMatches = nextBranches.filter((branch) => branch.moves.length === state.appliedMoves.length);
+    if (exactMatches.length) {
+      const terminalBranch = exactMatches[0];
+      if (terminalBranch.outcome === "correct") {
         state.solved = true;
-        state.status = "Solved.";
+        state.status = terminalBranch.message || "Solved.";
+      } else {
+        state.failed = true;
+        state.status = terminalBranch.message || state.block.defaultIncorrectMessage || "That move does not solve the puzzle.";
       }
     } else {
-      const matchingFailure = (state.block.failureSequences || []).find((failureSequence) => {
-        const firstMove = failureSequence.moves?.[0];
-        return firstMove && firstMove.x === coordinate.x && firstMove.y === coordinate.y;
-      });
-      state.failed = true;
-      state.status = matchingFailure?.message || "That move does not solve the puzzle.";
+      const remainingMatches = getMatchingPuzzleBranches(branches, state.appliedMoves);
+      state.status = `Move ${state.appliedMoves.length} accepted. ${remainingMatches.length} authored continuation${remainingMatches.length === 1 ? "" : "s"} remain.`;
     }
 
     renderBlock(boardElement.closest(BLOCK_SELECTOR), state);
@@ -408,6 +510,7 @@ const BlueshellWeiqi = (() => {
     const boardElement = element.querySelector("[data-weiqi-board]");
     const statusElement = element.querySelector("[data-weiqi-status]");
     const explanationElement = element.querySelector("[data-weiqi-explanation]");
+    const dynamicCaptionElement = element.querySelector("[data-weiqi-dynamic-caption]");
 
     if (!boardElement || !statusElement) {
       return;
@@ -423,6 +526,12 @@ const BlueshellWeiqi = (() => {
     statusElement.classList.toggle("is-error", Boolean(state.failed));
     statusElement.classList.toggle("is-success", Boolean(state.solved));
 
+    if (dynamicCaptionElement) {
+      const caption = getAnimatedCaption(state);
+      dynamicCaptionElement.textContent = caption;
+      dynamicCaptionElement.classList.toggle("hidden", !caption);
+    }
+
     if (explanationElement) {
       explanationElement.classList.toggle("hidden", !(state.solved && block.explanation));
     }
@@ -431,28 +540,27 @@ const BlueshellWeiqi = (() => {
       button.textContent = state.autoplayTimer ? "Pause" : "Autoplay";
     });
 
-    element.querySelectorAll('[data-weiqi-action="select-variation"]').forEach((button, index) => {
-      button.classList.toggle("is-active", index === state.selectedVariationIndex);
+    element.querySelectorAll('[data-weiqi-action="select-chunk"]').forEach((button, index) => {
+      button.classList.toggle("is-active", index === state.selectedChunkIndex);
     });
   }
 
   function getBoardStateForMode(state) {
     const block = state.block;
     if (block.mode === "animated") {
-      const activeVariation = (block.variations || [])[state.selectedVariationIndex] || { moves: [] };
-      const moveSlice = (activeVariation.moves || []).slice(0, state.moveIndex);
+      const playbackState = getAnimatedPlaybackState(block, state.selectedChunkIndex, state.moveIndex);
       return {
-        stones: [...(block.initialPosition || []), ...moveSlice],
-        markers: block.markers || [],
-        lastMove: moveSlice[moveSlice.length - 1] || null,
+        stones: [...(block.initialPosition || []), ...playbackState.moves],
+        markers: [...(block.markers || []), ...(playbackState.activeMove?.markers || [])],
+        lastMove: playbackState.activeMove || null,
       };
     }
 
     if (block.mode === "puzzle") {
       return {
-        stones: [...(block.initialPosition || []), ...state.appliedSolution],
+        stones: [...(block.initialPosition || []), ...state.appliedMoves],
         markers: block.markers || [],
-        lastMove: state.appliedSolution[state.appliedSolution.length - 1] || null,
+        lastMove: state.appliedMoves[state.appliedMoves.length - 1] || null,
       };
     }
 
@@ -705,13 +813,13 @@ const BlueshellWeiqi = (() => {
     }
 
     if (block.mode === "animated") {
-      const activeVariation = (block.variations || [])[state.selectedVariationIndex] || { label: "Main line", moves: [] };
-      const totalMoves = Array.isArray(activeVariation.moves) ? activeVariation.moves.length : 0;
-      return totalMoves ? `${activeVariation.label}: move ${state.moveIndex} of ${totalMoves}.` : "Add a variation to animate this diagram.";
+      const activeChunk = (block.animationChunks || [])[state.selectedChunkIndex] || { label: "Main line", moves: [] };
+      const totalMoves = getChunkMoveCount(activeChunk);
+      return totalMoves ? `${activeChunk.label}: move ${state.moveIndex} of ${totalMoves}.` : "Add a chunk to animate this diagram.";
     }
 
     if (block.mode === "puzzle") {
-      return "Click an intersection to try the success line.";
+      return "Click an intersection to follow an authored branch.";
     }
 
     return block.markers?.length ? "Static board with markers." : "Static board.";
@@ -741,6 +849,80 @@ const BlueshellWeiqi = (() => {
     return Math.min(max, Math.max(min, value));
   }
 
+  function getChunkMoveCount(chunk) {
+    return Array.isArray(chunk?.moves) ? chunk.moves.length : 0;
+  }
+
+  function advanceAnimatedStep(state) {
+    const chunks = state.block.animationChunks || [];
+    if (!chunks.length) {
+      return false;
+    }
+
+    const activeChunk = chunks[state.selectedChunkIndex] || chunks[0] || { moves: [] };
+    if (state.moveIndex < getChunkMoveCount(activeChunk)) {
+      state.moveIndex += 1;
+      return true;
+    }
+
+    if (state.selectedChunkIndex < chunks.length - 1) {
+      state.selectedChunkIndex += 1;
+      state.moveIndex = getChunkMoveCount(chunks[state.selectedChunkIndex] || chunks[0]) ? 1 : 0;
+      return true;
+    }
+
+    return false;
+  }
+
+  function getAnimatedPlaybackState(block, chunkIndex, moveIndex) {
+    const chunks = block.animationChunks || [];
+    const safeChunkIndex = clamp(chunkIndex, 0, Math.max(0, chunks.length - 1));
+    const moves = [];
+
+    chunks.forEach((chunk, index) => {
+      const chunkMoves = Array.isArray(chunk.moves) ? chunk.moves : [];
+      if (index < safeChunkIndex) {
+        moves.push(...chunkMoves);
+        return;
+      }
+      if (index === safeChunkIndex) {
+        moves.push(...chunkMoves.slice(0, moveIndex));
+      }
+    });
+
+    const activeChunk = chunks[safeChunkIndex] || null;
+    const activeMove = activeChunk && moveIndex > 0 ? activeChunk.moves[moveIndex - 1] || null : null;
+    return {
+      activeChunk,
+      activeMove,
+      moves,
+    };
+  }
+
+  function getAnimatedCaption(state) {
+    if (state.block.mode !== "animated" || state.moveIndex <= 0) {
+      return "";
+    }
+
+    const activeChunk = (state.block.animationChunks || [])[state.selectedChunkIndex] || null;
+    return activeChunk?.caption || "";
+  }
+
+  function getMatchingPuzzleBranches(branches, playedMoves) {
+    return (branches || []).filter((branch) => isBranchPrefixMatch(branch, playedMoves));
+  }
+
+  function isBranchPrefixMatch(branch, playedMoves) {
+    if (!Array.isArray(branch?.moves) || branch.moves.length < playedMoves.length) {
+      return false;
+    }
+
+    return playedMoves.every((move, index) => {
+      const branchMove = branch.moves[index];
+      return branchMove && branchMove.color === move.color && branchMove.x === move.x && branchMove.y === move.y;
+    });
+  }
+
   return {
     BOARD_SIZES,
     escapeHtml,
@@ -750,9 +932,11 @@ const BlueshellWeiqi = (() => {
     normalizeWeiqiBlock,
     normalizeViewWindow,
     getDefaultViewWindow,
-    normalizeAnimatedVariations,
+    normalizeAnimationChunks,
+    normalizeAnimatedVariations: normalizeAnimationChunks,
     normalizePuzzleSuccessSequence,
     normalizePuzzleFailureSequences,
+    normalizePuzzleBranches,
     buildBoardSvg,
     getCoordinateFromPointer,
     getPointKey,
