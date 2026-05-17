@@ -161,6 +161,7 @@ function renderHero() {
   hero.innerHTML = `
     <div class="hero-nav" data-debug-name="Hero nav">
       <div class="brand-mark">
+        <img class="brand-logo" src="/assets/images/north-phoenix-weiqi-logo.png" alt="" aria-hidden="true" />
         <span>${escapeHtml(site.brandMark || site.title)}</span>
       </div>
       <div class="hero-carousel-arrows" aria-label="Hero navigation" data-debug-name="Hero arrows">

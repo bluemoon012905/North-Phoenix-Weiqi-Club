@@ -54,6 +54,7 @@ async function loadPost() {
   heroElement.innerHTML = `
     <div class="hero-nav">
       <div class="brand-mark">
+        <img class="brand-logo" src="/assets/images/north-phoenix-weiqi-logo.png" alt="" aria-hidden="true" />
         <span>${escapeHtml(content.site?.brandMark || content.site?.title || "Blue's collection")}</span>
       </div>
       <div class="hero-actions">
