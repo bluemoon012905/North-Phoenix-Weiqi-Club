@@ -6,10 +6,7 @@
     <title>Blue Shell Almanac Editor</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Manrope:wght@400;500;700&display=swap"
-      rel="stylesheet"
-    />
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;500;700&display=swap" rel="stylesheet" />
     <link rel="icon" type="image/png" href="/assets/images/north-phoenix-weiqi-logo.png" />
     <link rel="stylesheet" href="editor.css" />
   </head>
@@ -19,7 +16,7 @@
         <div class="sidebar-head">
           <p id="editor-eyebrow-display" class="eyebrow">Local editor</p>
           <h1 id="editor-title-display">Blue Shell Almanac</h1>
-          <p id="editor-description-display">Manage site copy and posts here. Saving writes directly to <code>data/content.json</code>.</p>
+          <p id="editor-description-display">Manage site copy and posts here. Saving writes directly to <code>data/content.json</code> and <code>data/posts/</code>.</p>
         </div>
         <div class="sidebar-actions">
           <button id="new-post-button" type="button">Add post</button>
@@ -35,15 +32,28 @@
       </aside>
 
       <main class="editor-main">
-        <section class="panel">
+        <section class="panel" data-panel-id="homepage-copy">
           <div class="panel-head">
             <div>
               <p class="eyebrow">Site settings</p>
               <h2>Homepage copy</h2>
             </div>
-            <p id="status-message" class="status-message">Idle</p>
+            <div class="panel-head-actions">
+              <p id="status-message" class="status-message">Idle</p>
+              <button
+                id="toggle-homepage-copy-button"
+                type="button"
+                class="secondary-ink panel-toggle-button"
+                data-action="toggle-panel"
+                data-panel-id="homepage-copy"
+                aria-expanded="true"
+              >
+                Minimize
+              </button>
+            </div>
           </div>
-          <div class="form-grid site-grid">
+          <div class="panel-content">
+            <div class="form-grid site-grid">
             <label>
               <span>Site title</span>
               <input id="site-title" type="text" />
@@ -92,29 +102,33 @@
               <span>Editor description</span>
               <textarea id="editor-description" rows="3"></textarea>
             </label>
+            </div>
           </div>
         </section>
 
-        <section class="panel">
+        <section class="panel" data-panel-id="section-layout">
           <div class="panel-head">
             <div>
               <p class="eyebrow">Homepage panels</p>
               <h2>Section layout</h2>
             </div>
-            <button id="new-home-panel-button" type="button">Add homepage panel</button>
-          </div>
-          <div id="home-panel-fields" class="home-panel-fields"></div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-head">
-            <div>
-              <p class="eyebrow">Categories</p>
-              <h2>Section labels</h2>
+            <div class="panel-head-actions">
+              <button
+                id="toggle-section-layout-button"
+                type="button"
+                class="secondary-ink panel-toggle-button"
+                data-action="toggle-panel"
+                data-panel-id="section-layout"
+                aria-expanded="true"
+              >
+                Minimize
+              </button>
+              <button id="new-home-panel-button" type="button">Add homepage panel</button>
             </div>
-            <button id="new-category-button" type="button">Add panel</button>
           </div>
-          <div id="category-fields" class="category-fields"></div>
+          <div class="panel-content">
+            <div id="home-panel-fields" class="home-panel-fields"></div>
+          </div>
         </section>
 
         <section class="panel">
@@ -158,7 +172,7 @@
           <div>
             <p class="eyebrow">Post composer</p>
             <h2 id="composer-title">New post</h2>
-            <p id="composer-subtitle" class="composer-copy">Write, format, paste images, then save everything back into the site JSON.</p>
+            <p id="composer-subtitle" class="composer-copy">Write, format, paste images, then save everything back into the site content files.</p>
           </div>
           <div class="composer-head-actions">
             <button id="insert-image-button" type="button" class="secondary-ink">Insert image</button>
@@ -214,6 +228,19 @@
                 <input id="cover-image-upload-input" type="file" accept="image/*" class="visually-hidden" />
               </div>
             </div>
+            <div class="structured-editor-shell">
+              <div class="rich-editor-head">
+                <div>
+                  <p class="workspace-kicker">Structured content</p>
+                  <h3>Weiqi blocks</h3>
+                </div>
+                <p class="workspace-copy">Add typed board content after the rich body. Coordinates are stored zero-based.</p>
+              </div>
+              <div class="structured-editor-actions">
+                <button id="add-weiqi-block-button" type="button" class="secondary-ink">Add Weiqi block</button>
+              </div>
+              <div id="content-block-fields" class="content-block-fields"></div>
+            </div>
             <div class="rich-editor-shell">
               <div class="rich-editor-head">
                 <div>
@@ -246,6 +273,10 @@
                 <button type="button" data-command="justifyCenter">Center</button>
                 <button id="insert-button-link-button" type="button">Button</button>
                 <button id="insert-citation-link-button" type="button">Citation</button>
+                <select id="insert-inline-weiqi-select" aria-label="Weiqi block to insert inline">
+                  <option value="">No blocks yet</option>
+                </select>
+                <button id="insert-inline-weiqi-button" type="button" disabled>Weiqi</button>
                 <label class="toolbar-swatch">
                   <span>Text</span>
                   <input id="text-color-input" type="color" value="#1f2430" />
@@ -347,6 +378,8 @@
       </section>
     </div>
     <script src="editor-helpers.js" defer></script>
+    <script src="../assets/weiqi-content.js" defer></script>
+    <script src="editor-weiqi-tools.js" defer></script>
     <script src="editor.js" defer></script>
     <script src="editor-events.js" defer></script>
   </body>

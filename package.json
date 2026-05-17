@@ -4,6 +4,10 @@
   "private": true,
   "description": "Static project blog with a local editor",
   "scripts": {
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "scrape:101weiqi": "node scrapers/101weiqi/scraper.js"
+  },
+  "dependencies": {
+    "playwright": "^1.44.0"
   }
 }

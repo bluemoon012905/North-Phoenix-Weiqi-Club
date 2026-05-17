@@ -1,3 +1,4 @@
+// Editor-only helpers stay separate from public helpers so the editor can load independently.
 const BlueshellEditorHelpers = {
   byNewestDate(left, right) {
     return new Date(right.date) - new Date(left.date);
@@ -12,6 +13,7 @@ const BlueshellEditorHelpers = {
   },
 
   sanitizeRichHtml(html) {
+    // The editor previews authored HTML inline, so use the same safety boundary before rendering it.
     const template = document.createElement("template");
     template.innerHTML = html;
     const disallowedTags = new Set(["script", "style", "iframe", "object", "embed", "meta", "link"]);
@@ -146,6 +148,7 @@ const BlueshellEditorHelpers = {
   },
 
   normalizeComposerHtml(html) {
+    // ContentEditable can collapse to an empty string; keep a minimal paragraph wrapper for editing.
     const cleaned = BlueshellEditorHelpers.sanitizeRichHtml(html || "").trim();
     return cleaned || "<p></p>";
   },

@@ -1,4 +1,7 @@
 const { escapeHtml, formatDate, renderPostBody, escapeAttribute, getSafeImageSource } = window.BlueshellContent;
+const { expandInlineBlocks, renderStructuredContentBlocks, init: initWeiqiContent } = window.BlueshellWeiqi;
+
+// Speech synthesis state is shared across the read-aloud controls for a single post page.
 const speechState = {
   supported: "speechSynthesis" in window && "SpeechSynthesisUtterance" in window,
   active: false,
@@ -28,15 +31,15 @@ async function loadPost() {
     throw new Error("No post was provided.");
   }
 
-  const response = await fetch("../data/content.json", { cache: "no-store" });
-  if (!response.ok) {
-    throw new Error("Could not load content.");
+  const content = await window.BlueshellContent.loadContentIndex("../");
+  const publishedPosts = (content.posts || []).filter((entry) => entry.published !== false);
+  const postIndexEntry = publishedPosts.find((entry) => entry.id === postId);
+  if (!postIndexEntry) {
+    throw new Error("That post does not exist.");
   }
 
-  const content = await response.json();
-  const publishedPosts = (content.posts || []).filter((post) => post.published !== false);
-  const post = publishedPosts.find((entry) => entry.id === postId);
-  if (!post) {
+  const post = await window.BlueshellContent.loadPostById(postId, "../");
+  if (post.published === false) {
     throw new Error("That post does not exist.");
   }
 
@@ -76,7 +79,8 @@ async function loadPost() {
     }
   `;
 
-  document.getElementById("post-shell").innerHTML = `
+  const postShell = document.getElementById("post-shell");
+  postShell.innerHTML = `
     <div class="post-meta">
       <span class="tag">${formatDate(post.date)}</span>
       ${(post.tags || []).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}
@@ -95,8 +99,23 @@ async function loadPost() {
       </div>
     </div>
     <div class="post-body">${renderPostBody(post)}</div>
+    <div data-trailing-blocks></div>
   `;
 
+  const postBodyEl = postShell.querySelector(".post-body");
+  const inlinedIndices = expandInlineBlocks(postBodyEl, post.contentBlocks);
+
+  const remainingBlocks = (post.contentBlocks || []).filter((_, i) => !inlinedIndices.has(i));
+  const trailingEl = postShell.querySelector("[data-trailing-blocks]");
+  if (remainingBlocks.length) {
+    trailingEl.outerHTML = renderStructuredContentBlocks(remainingBlocks);
+  } else {
+    trailingEl.remove();
+  }
+
+  initWeiqiContent(postShell);
+
+  // Bind read-aloud after the post body exists so text extraction can use the rendered DOM.
   bindReadAloud(post);
 }
 
@@ -146,6 +165,7 @@ function bindReadAloud(post) {
 }
 
 function hydrateVoiceList(select) {
+  // Voice availability is browser-driven and may populate asynchronously after page load.
   const populateVoices = () => {
     const voices = window.speechSynthesis.getVoices();
     speechState.voices = voices;

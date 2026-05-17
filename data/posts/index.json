@@ -1,0 +1,19 @@
+{
+  "posts": [
+    {
+      "id": "homework0510",
+      "title": "HW May 10th: Capturing & Basic Attach Joseki",
+      "category": "homework",
+      "date": "2026-05-10",
+      "summary": "3 puzzles and one basic Joseki for the corner 3-3",
+      "coverImage": "",
+      "published": true,
+      "featured": true,
+      "tags": [
+        "Homework",
+        "Puzzle"
+      ],
+      "bodyFormat": "html"
+    }
+  ]
+}

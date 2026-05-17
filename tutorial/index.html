@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tutorial | North Phoenix Weiqi</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../assets/styles.css" />
+    <style>
+      .tutorial-stage-grid {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 18px;
+      }
+
+      .tutorial-stage-card {
+        display: grid;
+        place-items: center;
+        aspect-ratio: 1 / 1;
+        padding: 20px;
+        text-align: center;
+      }
+
+      .tutorial-stage-card h2 {
+        margin: 0;
+        font-size: clamp(1.2rem, 2vw, 1.6rem);
+      }
+
+      @media (max-width: 960px) {
+        .tutorial-stage-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 720px) {
+        .tutorial-stage-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body data-page="tutorial">
+    <nav class="top-banner" aria-label="Primary">
+      <a class="top-banner-link" href="/">Home</a>
+      <a class="top-banner-link" href="/tutorial/" aria-current="page">Tutorial</a>
+      <a class="top-banner-link" href="/contact/">Contact</a>
+    </nav>
+    <main class="page-shell">
+      <header class="hero" aria-labelledby="tutorial-title">
+        <div class="hero-nav">
+          <div class="brand-mark">
+            <span>North Phoenix Weiqi</span>
+          </div>
+          <a class="ghost-link" href="/">Back home</a>
+        </div>
+        <div class="hero-copy">
+          <p class="eyebrow">Tutorial</p>
+          <h1 id="tutorial-title">work in progress!!</h1>
+        </div>
+      </header>
+      <div class="main-layout">
+        <section class="section">
+          <div class="tutorial-stage-grid" aria-label="Tutorial stages">
+            <article class="category-card tutorial-stage-card">
+              <h2>Basic</h2>
+            </article>
+            <article class="category-card tutorial-stage-card">
+              <h2>Tsumego</h2>
+            </article>
+            <article class="category-card tutorial-stage-card">
+              <h2>Joseki</h2>
+            </article>
+            <article class="category-card tutorial-stage-card">
+              <h2>End game</h2>
+            </article>
+            <article class="category-card tutorial-stage-card">
+              <h2>Fuseki</h2>
+            </article>
+          </div>
+        </section>
+      </div>
+    </main>
+  </body>
+</html>
