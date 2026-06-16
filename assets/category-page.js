@@ -46,6 +46,7 @@ async function loadCategory() {
   heroElement.innerHTML = `
     <div class="hero-nav">
       <div class="brand-mark">
+        <img class="brand-logo" src="/assets/images/north-phoenix-weiqi-logo.png" alt="" aria-hidden="true" />
         <span>${categoryHelpers.escapeHtml(content.site?.brandMark || content.site?.title || "Blue's collection")}</span>
       </div>
       <a class="ghost-link" href="/">Back home</a>

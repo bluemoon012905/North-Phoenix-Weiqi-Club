@@ -46,6 +46,7 @@ function renderContactPage(site) {
   contactElements.hero.innerHTML = `
     <div class="hero-nav">
       <div class="brand-mark">
+        <img class="brand-logo" src="/assets/images/north-phoenix-weiqi-logo.png" alt="" aria-hidden="true" />
         <span>${escapeHtml(brandMark)}</span>
       </div>
       <a class="ghost-link" href="/">Back home</a>
